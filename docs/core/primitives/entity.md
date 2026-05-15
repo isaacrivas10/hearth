@@ -7,231 +7,174 @@
 
 The kernel primitive for *things with identity and lifecycle*. Plugin
 authors subclass `Entity` to declare new entity types. Instances are
-persisted as rows that get updated; the kernel manages identity
-assignment, lifecycle metadata, and registry lookup.
+mapped to SQLAlchemy ORM rows; the kernel manages identity assignment,
+column generation, and the unit-of-work pattern.
 
-`Entity` instances are **mutable** but their mutations are not persisted
-until an `Action` calls `await uow.save(entity)`. Entities are never read
-or written outside an `Action`'s `UnitOfWork`.
+`Entity` instances are mutable. Mutations to instances loaded inside a
+transaction auto-flush on commit (SQLAlchemy ORM dirty tracking).
+Entities are never read or written outside an `Action`'s `UnitOfWork`.
 
 ## Declaration
 
 ```python
-from hearth import Entity, Field, References
-from hearth_commons import PhoneNumber       # opt-in via pip install hearth[commons]
+from hearth import Entity, model_validator
+from hearth_commons import PhoneNumber
 
 class Customer(Entity, plugin="commerce"):
-    phone: PhoneNumber                           # required; valid by construction
-    name: str | None = None                       # nullable; defaults to None
-    notes: str = Field(default="", description="freeform notes for the merchant")
+    phone: PhoneNumber                # required Value
+    name: str | None = None            # nullable, default None
+    note: str = ""                     # default empty string
 ```
 
-Three things to note about the shape:
+Things to note:
 
 - **The annotation is the source of truth.** `phone: PhoneNumber`
-  declares both the Python type and the column type — the kernel
-  dispatches the column from the annotation. No `fields.Text(...)`,
-  no `fields.Value(PhoneNumber)`. See [`fields.md`](../fields.md) for
-  the full annotation-to-column dispatch table.
-- **`Field(...)` is needed only when there's a kwarg.** A bare
-  annotation with an optional default value handles the common case;
-  `Field()` carries `default_factory`, `description`, `auto_now_add`,
-  `server_default`, and similar.
-- **There is no field-level validation on the entity.** `PhoneNumber`
-  validates itself at construction (see
-  [`value.md`](value.md)). Any entity with `phone: PhoneNumber` is
-  guaranteed to have a valid phone — the entity has nothing to defend
-  against.
-
-The class-level keyword arguments configure per-entity options:
-
-| kwarg | required? | meaning |
-| --- | --- | --- |
-| `plugin: str` | yes | The owning plugin's name. Drives registry, migration grouping, and cross-plugin reference resolution. |
-| (reserved) | — | Future kwargs: `audit=`, `soft_delete=`, `index=`, etc. Each gets its own ADR before being added. |
-
-Because `Entity` uses `typing.dataclass_transform` (PEP 681), type
-annotations on fields are real field declarations. Plugin authors get
-type-checked constructors and attribute access:
-
-```python
-customer = Customer(phone=PhoneNumber(raw="+50499998888"))   # type-checked
-customer.phone        # PhoneNumber, not Any
-customer.name         # str | None, not Any
-```
+  declares both the Python type and the column type — the kernel's
+  metaclass dispatches the column from the annotation. There is no
+  `Mapped[T]` wrapper, no `mapped_column(...)` call, no `sqlalchemy`
+  import.
+- **`__tablename__` is auto-generated** from the plugin name + class
+  name (`commerce__customer` for the example above). Plugins can
+  override by declaring `__tablename__ = "..."` explicitly.
+- **`id` is provided automatically** by `Entity` itself — see "Identity"
+  below. Plugin authors don't declare it.
+- **Construction is keyword-only** (`Customer(phone=..., name=...)`) —
+  matches Pydantic's idiom and side-steps dataclass field-ordering
+  rules around defaults.
 
 ## Fields
 
-Field declarations are driven by the type annotation. The kernel
-translates annotations into SQLAlchemy columns; plugin authors never
-import from `sqlalchemy`. The full annotation-to-column dispatch table
-lives in [`fields.md`](../fields.md). The summary:
+Field declarations are driven by the type annotation. The kernel's
+metaclass walks `__annotations__` at class-creation time and
+synthesises a SQLAlchemy `mapped_column(...)` with the right column
+type for each field. The annotation-to-column mapping:
 
 | Annotation | Column |
 | --- | --- |
 | `str` | TEXT |
 | `int` | BIGINT |
 | `bool` | BOOLEAN |
+| `float` | DOUBLE PRECISION |
 | `datetime` | TIMESTAMPTZ (TZ-aware always) |
 | an enum subclass | ENUM (or VARCHAR + CHECK on SQLite) |
 | `dict \| list` | JSONB |
-| a `Value` subclass | embedded column (JSON-encoded by default) |
-| an `Entity` subclass via `References()` | foreign key |
+| a `Value` subclass | embedded column (JSON-encoded via TypeDecorator) |
+| `EntityId` | TEXT |
 
 `T | None` makes the column NULL-allowed; `T` makes it NOT NULL. The
 annotation is the source of truth for both Python type and DB
-nullability — no `nullable=True` kwarg.
+nullability — there is no `nullable=True` kwarg.
 
-Plugin-defined values plug in by their type alone — no wrapper needed:
+### When you do need `Field(...)`
+
+`Field(...)` is for kwargs the annotation can't carry — kernel-managed
+defaults, descriptions, server-side defaults. See [`fields.md`](../fields.md).
 
 ```python
-from hearth import Entity, References
-from hearth_commons import Money, Address    # commons plugin
+from datetime import datetime
+from hearth import Entity, Field
 
 class Order(Entity, plugin="commerce"):
-    customer: Customer = References()
-    total: Money                              # required; embedded value
-    shipping_address: Address | None = None    # optional; embedded value
+    customer: Customer
+    placed_at: datetime = Field(auto_now_add=True)
+    note: str = Field(default="", description="freeform notes")
 ```
 
-Defaults: a field without a default value is required at construction.
-Plugins should prefer explicit defaults to nullables when the column
-has a sensible empty value (`name: str = ""` over `name: str | None = None`
-when an empty string is meaningful).
+For the typical case (no kwargs needed), bare annotation + Python
+default is enough.
 
 ## Identity
 
-Every `Entity` has an `id` field, supplied by the kernel:
-
-- Type: `EntityId` (a kernel-shipped value, ULID-backed by default for
-  monotonic ordering and outbox-friendly sorting; see ADR-0007).
-- Assigned at first persist (inside the first `await uow.save(entity)`),
-  not at construction. Plugin authors do not assign `id` themselves.
-- Equality and hash are identity-based: two `Customer` instances are
-  equal iff their `id`s are assigned and equal. Unsaved instances are
-  equal only to themselves (`id is None` until persisted).
+Every entity inherits an `id: EntityId` field from `Entity`. The kernel
+assigns the id at construction (via `default_factory=EntityId.new`),
+so plugin code can reference `customer.id` immediately — useful for
+emitting events:
 
 ```python
-c1 = Customer(phone=PhoneNumber(raw="+50499998888"))
-c2 = Customer(phone=PhoneNumber(raw="+50499998888"))
-c1 == c2        # False — both unsaved
-c1 == c1        # True
+class CreateCustomer(Action):
+    phone: PhoneNumber
 
-await uow.save(c1)
-loaded = await uow.get(Customer, c1.id)
-loaded == c1    # True — same id
+    async def handle(self, uow, identity):
+        customer = Customer(phone=self.phone)   # id auto-generated here
+        await uow.save(customer)
+        uow.emit(CustomerCreated(customer_id=customer.id))   # use it now
+        return customer
 ```
 
-See [`identifiers.md`](../identifiers.md) for the `EntityId` value type.
+`EntityId` is a ULID-backed string subclass. See
+[`identifiers.md`](../identifiers.md).
+
+Equality and hashing are identity-based: two entities of the same type
+are equal iff they share an id. Two `Customer` instances constructed
+in the same process get distinct auto-generated ids and are therefore
+not equal — matching the natural intuition that "two new customers are
+different customers."
+
+```python
+a = Customer(phone=phone1)
+b = Customer(phone=phone1)
+assert a.id != b.id        # auto-generated, distinct
+assert a != b              # identity-based equality
+assert a in {a}            # hashable
+```
 
 ## Validation
 
-Hearth uses Pydantic v2 for validation; the patterns are Pydantic's. See
-[`value.md`](value.md) for the wider rationale (best-in-class library
-underneath, narrow surface above).
+Hearth uses Pydantic v2 for validation. Three places validation lives,
+each tied to the lowest layer that can express the constraint:
 
-There are three places validation can live, with a strict rule for
-where each kind belongs:
-
-- **Field-level validation belongs on the `Value` type, not the
-  entity.** If `PhoneNumber` validates E.164 in its own `field_validator`,
-  any entity with `phone: PhoneNumber` is automatically guaranteed to
-  have a valid phone. There's nothing for the entity to check. See
-  [`value.md`](value.md).
-- **Cross-field invariants belong in `@model_validator(mode="after")`
-  on the entity.** Things no single value can express — relationships
-  between two fields, state-machine consistency, ordering constraints.
-  Run by Pydantic at construction and on `validate_assignment`.
-- **Cross-entity invariants belong in actions.** Anything that requires
-  reading another entity from the database (uniqueness checks,
-  reference integrity beyond FKs) lives in the action handler, where
-  the `UnitOfWork` is in scope.
+- **Field-level validation** belongs on the `Value` type. If
+  `PhoneNumber` validates E.164 in its own `field_validator`, any
+  entity with `phone: PhoneNumber` is automatically guaranteed to have
+  a valid phone — there's nothing for the entity to check.
+- **Cross-field invariants** belong in `Entity.validate()`. Things no
+  single value can express (relationships between two fields, state-
+  machine consistency, ordering constraints).
+- **Cross-entity invariants** belong in actions. Anything requiring a
+  read of another entity (uniqueness checks, FK integrity beyond what
+  the DB enforces) lives in the action handler with the UoW.
 
 Cross-field invariants — the entity-level case:
 
 ```python
 from datetime import datetime
-from hearth import Entity, model_validator
+from hearth import Entity
 
 class Order(Entity, plugin="commerce"):
     placed_at: datetime
     delivered_at: datetime | None = None
 
-    @model_validator(mode="after")
-    def delivered_after_placed(self) -> "Order":
-        if self.delivered_at and self.delivered_at < self.placed_at:
+    def validate(self) -> None:
+        if self.delivered_at is not None and self.delivered_at < self.placed_at:
             raise ValueError("cannot deliver before placement")
-        return self
 ```
 
 State-machine consistency:
 
 ```python
-from hearth import Entity, model_validator
-
 class Order(Entity, plugin="commerce"):
     status: OrderStatus = OrderStatus.DRAFT
     paid_at: datetime | None = None
 
-    @model_validator(mode="after")
-    def paid_orders_have_paid_at(self) -> "Order":
+    def validate(self) -> None:
         if self.status is OrderStatus.PAID and self.paid_at is None:
             raise ValueError("paid orders must record paid_at")
-        return self
 ```
 
-Pydantic's `@field_validator` is also available on entities for the
-rare case where a single-field validation can't sensibly be pushed
-into a Value type — but the default move is to push it down. If you
-find yourself writing a `@field_validator` on an entity, ask whether
-the field's type should carry the constraint instead.
+`validate()` runs in `__post_init__` after type checking. Type checking
+itself is done via `pydantic.TypeAdapter(annotation).validate_python(value)`
+for each field — so the annotation's type contract is enforced at
+construction.
 
-The kernel does **not** expose `before_save` / `after_save` /
-`before_delete` / `after_delete` hooks on `Entity`. The reasons:
-
-- Cross-entity side effects belong in `Action`s, where the `UnitOfWork`
-  is in scope and the operation is transactional.
-- Reactions to commits belong in `Event` subscribers, which run
-  post-commit with at-least-once delivery (ADR-0007).
-- Mixing entity-level hooks with the outbox model would let plugin
-  authors bypass the transactional contract by accident.
-
-## Cross-plugin references
-
-`References()` is the default form. The target entity is inferred from
-the type annotation; the referenced class is imported and known at
-type-check time:
-
-```python
-from commerce import Customer  # commerce is a declared dependency
-
-class Conversation(Entity, plugin="whatsapp"):
-    customer: Customer = References()                          # default FK
-    primary: Customer = References(on_delete="cascade")        # FK with kwargs
-```
-
-The string form `customer: "Customer"` is reserved for forward
-references within the same module — circular references between two
-entities defined in the same file. Cross-plugin references that use a
-string-form annotation are rejected at startup; this is intentional.
-Use the import.
-
-`on_delete` accepts:
-
-- `"restrict"` (default) — kernel raises if the referenced entity is
-  deleted while references exist.
-- `"cascade"` — referencing entities are deleted when the referenced
-  entity is deleted.
-- `"set_null"` — references become `None`. The reference field must be
-  nullable.
-
-See [`references.md`](../references.md) for the full `References` spec.
+Mutation is also validated: assigning `customer.name = 123` raises
+`ValidationError` because the annotation is `str | None`. SQLAlchemy
+ORM load bypasses the validation hook (it uses descriptor protocol
+internally), so this only catches plugin-author code paths.
 
 ## Persistence interface
 
-Plugins do not call `entity.save()`, `entity.delete()`, or query methods
-on entity classes. All persistence goes through `UnitOfWork`, passed into
-actions:
+Plugin authors don't call `entity.save()` or `entity.delete()` directly.
+All persistence goes through `UnitOfWork`, passed into actions:
 
 ```python
 class CreateCustomer(Action):
@@ -244,57 +187,80 @@ class CreateCustomer(Action):
         return customer
 ```
 
-The full `UnitOfWork` interface is specified in
-[`unit-of-work.md`](../unit-of-work.md). The minimum surface entities
-need:
+The full `UnitOfWork` interface is in [`unit-of-work.md`](../unit-of-work.md):
 
-- `await uow.get(Customer, id)` — load by id, raises if missing.
-- `await uow.find_one(Customer, **filters)` — narrow lookup, returns
-  `Customer | None`.
-- `await uow.save(customer)` — persist (insert or update).
+- `await uow.get(Customer, id)` — load by id, raises `EntityNotFoundError` if missing.
+- `await uow.find_one(Customer, **filters)` — narrow lookup.
+- `await uow.save(customer)` — persist (insert for new, update for tracked, upsert for re-attached).
 - `await uow.delete(customer)` — delete.
-- `uow.emit(event)` — append to in-transaction outbox buffer (sync; no
-  I/O).
+- `uow.emit(event)` — append to in-transaction outbox buffer.
+
+Mutations to entities loaded via `get`/`find_one` are auto-tracked by
+SQLAlchemy and flushed on commit; you don't need to call `save()` again.
 
 General queries — reporting, presentation, complex joins — go through
 `View` primitives, not `UnitOfWork`. See ADR-0006 §"Read paths" and
 [`view.md`](view.md).
+
+## Implementation: SQLAlchemy + Pydantic
+
+`Entity` is built on `MappedAsDataclass + DeclarativeBase` (SQLAlchemy
+2.x's dataclass-style ORM mapping) with Pydantic's `TypeAdapter` for
+validation. The kernel's `_EntityMeta` metaclass walks plain
+annotations and synthesises `mapped_column(...)` descriptors with the
+right column types — including a custom `TypeDecorator` for embedding
+Pydantic `Value` subclasses through JSONB.
+
+This deviates from the literal "option 2" we initially agreed on
+(`pydantic.dataclasses.dataclass + MappedAsDataclass`), which turns
+out to be unworkable in current versions of pydantic + sqlalchemy:
+pydantic's dataclass decorator hits `Generic[cls.__parameters__]` with
+empty parameters because `DeclarativeBase` is itself `Generic`. The
+shipped path bypasses that by combining SQLAlchemy's dataclass-mapped
+class with Pydantic's standalone `TypeAdapter`.
+
+Plugin authors don't see any of this; they just write classes.
 
 ## What plugins cannot do
 
 - Import from `sqlalchemy` directly.
 - Access `Session`, `engine`, or `Connection` objects.
 - Execute raw SQL.
-- Declare `relationship()` or `mapped_column(...)`.
+- Declare `Mapped[T]` annotations or `mapped_column(...)` directly
+  (allowed as an escape hatch when the annotation can't express what
+  you need; the metaclass detects existing `mapped_column` and leaves
+  it alone — but reach for the SDK first).
 - Use SQLAlchemy event listeners or query API.
-- Override `Entity.__init_subclass__`, `Entity.__class_getitem__`, or
-  other kernel-internal class-creation hooks.
 - Subclass another plugin's entity to add fields. Plugins compose by
-  registering new actions and subscribing to events; they do not extend
-  by inheritance ([ADR-0003](../../architecture/0003-plugin-model.md):
+  registering new actions and subscribing to events; they do not
+  extend by inheritance ([ADR-0003](../../architecture/0003-plugin-model.md):
   "registration not inheritance").
 
 ## Open questions
 
-The slice will force decisions on these. Listed so the spec is honest
-about what's deferred.
+The slice landed enough to validate the shape; these still need
+attention as more plugins land:
 
+- **`References()` for cross-entity FKs.** Works today via direct
+  annotation (`customer: Customer`) producing a JSONB-embedded value,
+  but proper FKs (with on_delete cascade/restrict/set_null) need the
+  metaclass to detect Entity-typed annotations and emit
+  `mapped_column(ForeignKey(...))`. Lands when the second entity
+  references the first.
 - **Soft delete.** Likely a class-level kwarg
-  (`class Order(Entity, plugin="commerce", soft_delete=True)`) that adds
-  a `deleted_at: datetime | None` field and routes `uow.delete()`
-  through it. Deferred until a plugin needs it.
-- **Indexes and unique constraints.** Class-level kwargs in the long run
+  (`class Order(Entity, plugin="commerce", soft_delete=True)`) that
+  adds a `deleted_at: datetime | None` field and routes `uow.delete()`
+  through it.
+- **Indexes and unique constraints.** Class-level kwargs
   (`indexes=[("phone",)]`, `unique=[("phone",)]`); exact shape TBD.
-- **Inheritance between plugin entities.** A plugin's `PremiumCustomer`
-  inheriting from `Customer` to add fields — currently rejected by
-  ADR-0003. Confirm in the slice; revisit only if the pain is real.
+- **Inheritance between plugin entities.** Currently rejected by
+  ADR-0003. Confirm in the slice; revisit only if pain is real.
 - **Optimistic concurrency.** A `version: int` field that increments on
-  every save and gets checked on update. Likely a kwarg
-  (`optimistic_locking=True`) but not in the slice.
-- **Polymorphic entities (single-table inheritance).** Probably never.
-  Composition via references and views covers what STI does, without
-  the schema lock-in. Listed here so the rejection is on record.
-- **Whether `EntityId` should be exposed as a typed alias per entity**
-  (`CustomerId = NewType('CustomerId', EntityId)`) for stronger typing
-  on `References` and action commands. Likely yes; deferred to
-  [`identifiers.md`](../identifiers.md).
+  every save and gets checked on update.
+- **Pydantic `@model_validator(mode="after")` support.** Currently we
+  use a `validate()` method instead. The decorator-based form is
+  Pydantic's idiom but doesn't auto-fire on a non-BaseModel class;
+  could be added by detecting `PydanticDescriptorProxy` and calling it
+  manually in `__post_init__` if plugin authors prefer it.
+- **Migration generation.** Today we use `metadata.create_all`; real
+  Alembic-style migrations are deferred to [`kernel/migrations.md`](../kernel/migrations.md).
