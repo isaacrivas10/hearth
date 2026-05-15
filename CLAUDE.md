@@ -149,6 +149,23 @@ questions will be informed by real friction instead of imagined friction.
   software engineer and is willing to work on heavy tasks. Don't infantilize
   the design or pad estimates. Ship velocity matters; quality matters more.
 
+## Commit rules
+
+- Never commit without explicit request or authorization. "We're done" is
+  not commit permission; wait for the user to say so.
+- Never add commit steps to plans you create. Plans describe code and
+  tests; commit grouping is the user's call against the live tree.
+- Never add `Co-Authored-By` lines to commit messages.
+- Use Conventional Commits (`type(scope): summary`) —
+  https://www.conventionalcommits.org/en/v1.0.0/. Scope optional; types:
+  `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `style`,
+  `build`, `ci`.
+- Keep message bodies clean. Most commits don't need a body; when one is
+  needed, write the why, not the what.
+- Always commit by logical groups, even when the worktree has many
+  unrelated changes. Stage and commit per concern; never "everything
+  since last commit" in one blob.
+
 ## Conversation provenance
 
 The architectural decisions above came from a working session on 2026-04-30
