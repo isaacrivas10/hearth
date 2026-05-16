@@ -329,6 +329,70 @@ def test_db_status_reports_connection_ok(tmp_path, monkeypatch) -> None:
     assert "_hearth_outbox" in result.stdout
 
 
+def test_db_init_creates_plugin_tables(tmp_path, monkeypatch) -> None:
+    """`hearth db init` must call Registry.build() so plugin entities register
+    their tables in METADATA, then `create_all` picks them up."""
+    import sqlite3
+    import sys
+    import types
+
+    import hearth.kernel.registry as reg_mod
+    from hearth import bases_for
+
+    mod = types.ModuleType("hearth_test_db_init_plugin")
+    sys.modules["hearth_test_db_init_plugin"] = mod
+    EBase, _, _ = bases_for("dbinitplugin")  # noqa: N806
+
+    class Widget(EBase):
+        name: str
+
+    Widget.__module__ = "hearth_test_db_init_plugin"
+    mod.Widget = Widget
+
+    class FakeEP:
+        name = "dbinitplugin"
+        value = "hearth_test_db_init_plugin"
+        dist = type(
+            "FakeDist",
+            (),
+            {
+                "name": "pkg-dbinitplugin",
+                "version": "0",
+                "requires": (),
+            },
+        )()
+
+    monkeypatch.setattr(
+        reg_mod.importlib.metadata,
+        "entry_points",
+        lambda **kw: [FakeEP()] if kw.get("group") == "hearth.plugins" else [],
+    )
+
+    db_path = tmp_path / "hearth.db"
+    url = f"sqlite:///{db_path}"
+    monkeypatch.setenv("DATABASE_URL", url)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["db", "init"])
+    assert result.exit_code == 0
+
+    con = sqlite3.connect(str(db_path))
+    try:
+        tables = {
+            row[0] for row in con.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+    finally:
+        con.close()
+
+    assert "_hearth_outbox" in tables
+    assert "dbinitplugin__widget" in tables, f"expected plugin table; got {tables}"
+    # The new _init_impl iterates registry.plugins and echoes each plugin table.
+    # Without Registry.build(), the CLI only echoes the kernel outbox, so this
+    # asserts the observable behavior of the fix (not just the side effect on
+    # the shared METADATA, which the test body itself populates).
+    assert "dbinitplugin__widget" in result.stdout
+
+
 def test_db_graph_text_output(monkeypatch) -> None:
     import sys
     import types
@@ -373,3 +437,121 @@ def test_db_graph_text_output(monkeypatch) -> None:
     assert "citgraph__customer" in result.stdout
     assert "citgraph__order" in result.stdout
     assert "customer_id" in result.stdout
+
+
+def test_plugin_cli_group_is_registered(monkeypatch) -> None:
+    """A plugin contributing a Typer app via `hearth.cli` entry-point becomes
+    available as `hearth <alias> ...`."""
+    import importlib
+    import sys
+    import types
+
+    fake_mod = types.ModuleType("hearth_test_cliext_demo")
+    sub_app = typer.Typer(help="A test plugin CLI.")
+
+    @sub_app.callback()
+    def _root() -> None:
+        """Forces subcommand mode."""
+
+    @sub_app.command("hello")
+    def _hello() -> None:
+        typer.echo("hi from the plugin")
+
+    fake_mod.sub_app = sub_app
+    sys.modules["hearth_test_cliext_demo"] = fake_mod
+
+    class FakeEP:
+        name = "demoplugin"
+        value = "hearth_test_cliext_demo:sub_app"
+
+        def load(self):
+            return sub_app
+
+    monkeypatch.setattr(
+        "hearth.cli.importlib.metadata.entry_points",
+        lambda **kw: [FakeEP()] if kw.get("group") == "hearth.cli" else [],
+    )
+
+    import hearth.cli
+
+    importlib.reload(hearth.cli)
+    from hearth.cli import app as reloaded_app
+
+    runner = CliRunner()
+    result = runner.invoke(reloaded_app, ["demoplugin", "hello"])
+    assert result.exit_code == 0
+    assert "hi from the plugin" in result.stdout
+
+
+def test_plugin_cli_reserved_name_is_skipped(monkeypatch) -> None:
+    """A plugin trying to register under a kernel-reserved CLI name (`plugins`
+    or `db`) is skipped with a warning."""
+    import importlib
+    import sys
+    import types
+
+    fake_mod = types.ModuleType("hearth_test_cliext_clash")
+    sub_app = typer.Typer()
+
+    @sub_app.callback()
+    def _root() -> None:
+        """Forces subcommand mode."""
+
+    @sub_app.command("naughty")
+    def _naughty() -> None:
+        typer.echo("should not see this")
+
+    fake_mod.sub_app = sub_app
+    sys.modules["hearth_test_cliext_clash"] = fake_mod
+
+    class FakeEP:
+        name = "plugins"  # reserved name
+        value = "hearth_test_cliext_clash:sub_app"
+
+        def load(self):
+            return sub_app
+
+    monkeypatch.setattr(
+        "hearth.cli.importlib.metadata.entry_points",
+        lambda **kw: [FakeEP()] if kw.get("group") == "hearth.cli" else [],
+    )
+
+    import hearth.cli
+
+    importlib.reload(hearth.cli)
+    from hearth.cli import app as reloaded_app
+
+    runner = CliRunner()
+    result = runner.invoke(reloaded_app, ["plugins", "naughty"])
+    # `plugins` still exists as the kernel-owned group; "naughty" is not its command.
+    assert result.exit_code != 0
+    combined = result.stdout + (result.stderr or "")
+    assert "naughty" not in combined or "No such command" in combined
+
+
+def test_plugin_cli_load_failure_does_not_crash(monkeypatch) -> None:
+    """If a plugin's entry-point `ep.load()` raises, the CLI logs a warning
+    but continues registering other plugins and remains usable."""
+    import importlib
+
+    class BrokenEP:
+        name = "broken"
+        value = "no.such.module:no_such_app"
+
+        def load(self):
+            raise ModuleNotFoundError("no.such.module")
+
+    monkeypatch.setattr(
+        "hearth.cli.importlib.metadata.entry_points",
+        lambda **kw: [BrokenEP()] if kw.get("group") == "hearth.cli" else [],
+    )
+
+    import hearth.cli
+
+    importlib.reload(hearth.cli)
+    from hearth.cli import app as reloaded_app
+
+    runner = CliRunner()
+    # The bare CLI still works — broken plugin doesn't crash.
+    result = runner.invoke(reloaded_app, ["--version"])
+    assert result.exit_code == 0

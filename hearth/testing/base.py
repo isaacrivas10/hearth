@@ -1,8 +1,10 @@
-"""Shared SQLAlchemy-backed test harness — see docs/core/testing/harness.md.
+"""Shared test-harness base — see docs/core/testing/harness.md.
 
-Both the in-memory `Harness` (SQLite) and `PostgresHarness` are thin
+`InMemoryHarness` (SQLite-in-memory) and `PostgresHarness` are thin
 subclasses that supply an `AsyncEngine`; all transaction, table, and outbox
-logic lives here so there is exactly one SA-backed code path.
+logic lives here so there is exactly one SA-backed code path. `BaseHarness`
+is the public type plugin authors use to annotate parametrized
+`make_harness` fixtures so a single test body runs against either backend.
 """
 
 from __future__ import annotations
@@ -12,27 +14,36 @@ from contextlib import asynccontextmanager
 from typing import Any, cast
 
 from sqlalchemy import Connection, Table, select
-from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from hearth.kernel.persistence import METADATA, OUTBOX_TABLE
-from hearth.kernel.transaction import _UnitOfWork  # pyright: ignore[reportPrivateUsage]
+from hearth.kernel.transaction import (
+    _UnitOfWork,  # pyright: ignore[reportPrivateUsage]
+    transaction_factory,
+)
 from hearth.primitives.action import Action
+from hearth.primitives.actor import Actor, System
 from hearth.primitives.entity import Entity
 from hearth.primitives.event import Event
-from hearth.primitives.identity import Identity, System
 
 
-class _SqlAlchemyHarness:  # pyright: ignore[reportUnusedClass]
-    """SQLAlchemy-backed test harness.
+class BaseHarness:
+    """Shared base for SA-backed test harnesses.
 
-    Uses SQLAlchemy AsyncSession so plugin tests get the full ORM contract:
-    identity map, dirty tracking, lazy loading. Tracks the tables it created
-    so multiple harness instances don't trample each other.
+    Concrete subclasses (`InMemoryHarness`, `PostgresHarness`) supply the engine;
+    table creation/teardown, transaction scoping, and outbox introspection
+    live here. Plugin authors annotate parametrized `make_harness` fixtures
+    with this type so a single test body runs against both SQLite-in-memory
+    and Postgres.
+
+    Backed by SQLAlchemy AsyncSession to give plugin tests the full ORM
+    contract — identity map, dirty tracking, lazy loading — but plugins
+    never need to import from `sqlalchemy` to use it.
     """
 
     def __init__(self, engine: AsyncEngine) -> None:
         self._engine = engine
-        self._sessionmaker = async_sessionmaker(self._engine, expire_on_commit=False)
+        self._make_uow = transaction_factory(engine)
         self._tables: list[Table] = []
 
     async def setup(self, entities: list[type[Entity]] | None = None) -> None:
@@ -62,18 +73,16 @@ class _SqlAlchemyHarness:  # pyright: ignore[reportUnusedClass]
     @asynccontextmanager
     async def transaction(
         self,
-        identity: Identity | None = None,
+        actor: Actor | None = None,
     ) -> AsyncGenerator[_UnitOfWork]:
-        actor = identity if identity is not None else System()
-        async with self._sessionmaker() as session, session.begin():
-            uow = _UnitOfWork(session, actor)
+        active_actor = actor if actor is not None else System()
+        async with self._make_uow(actor=active_actor) as uow:
             yield uow
-            await uow._flush_events()  # pyright: ignore[reportPrivateUsage]
 
-    async def run(self, action: Action, identity: Identity | None = None) -> Any:
-        actor = identity if identity is not None else System()
-        async with self.transaction(identity=actor) as uow:
-            return await action.handle(uow, actor)
+    async def run(self, action: Action, actor: Actor | None = None) -> Any:
+        active_actor = actor if actor is not None else System()
+        async with self.transaction(actor=active_actor) as uow:
+            return await action.handle(uow, active_actor)
 
     async def events_of_type[E: Event](self, event_type: type[E]) -> list[E]:
         async with self._engine.connect() as conn:

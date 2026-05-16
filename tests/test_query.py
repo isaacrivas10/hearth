@@ -8,7 +8,7 @@ from collections.abc import AsyncIterator, Callable
 import pytest
 
 from hearth import Entity, EntityId, Query, Value, agg, field_validator
-from hearth.testing._base import _SqlAlchemyHarness
+from hearth.testing import BaseHarness
 
 
 class _Phone(Value):
@@ -37,8 +37,8 @@ class _QOrder(Entity, plugin="qry_test"):
 
 @pytest.fixture
 async def harness(
-    make_harness: Callable[[], _SqlAlchemyHarness],
-) -> AsyncIterator[_SqlAlchemyHarness]:
+    make_harness: Callable[[], BaseHarness],
+) -> AsyncIterator[BaseHarness]:
     h = make_harness()
     await h.setup(entities=[_QCust, _QOrder])
     try:
@@ -48,7 +48,7 @@ async def harness(
         await h.teardown()
 
 
-async def _seed_customers(h: _SqlAlchemyHarness) -> list[_QCust]:
+async def _seed_customers(h: BaseHarness) -> list[_QCust]:
     customers = [
         _QCust(name="Alice", phone=_Phone(raw="+50411111111"), note="vip", score=10),
         _QCust(name="Bob", phone=_Phone(raw="+50422222222"), note="vip", score=5),
@@ -61,14 +61,14 @@ async def _seed_customers(h: _SqlAlchemyHarness) -> list[_QCust]:
     return customers
 
 
-async def test_query_returns_typed_query(harness: _SqlAlchemyHarness) -> None:
+async def test_query_returns_typed_query(harness: BaseHarness) -> None:
     async with harness.transaction() as uow:
         q = uow.query(_QCust)
     assert isinstance(q, Query)
 
 
 async def test_all_returns_entities_for_single_entity_query(
-    harness: _SqlAlchemyHarness,
+    harness: BaseHarness,
 ) -> None:
     await _seed_customers(harness)
     async with harness.transaction() as uow:
@@ -77,7 +77,7 @@ async def test_all_returns_entities_for_single_entity_query(
     assert all(isinstance(r, _QCust) for r in rows)
 
 
-async def test_where_filters_results(harness: _SqlAlchemyHarness) -> None:
+async def test_where_filters_results(harness: BaseHarness) -> None:
     await _seed_customers(harness)
     async with harness.transaction() as uow:
         vips = await uow.query(_QCust).where(_QCust.note == "vip").all()
@@ -85,7 +85,7 @@ async def test_where_filters_results(harness: _SqlAlchemyHarness) -> None:
     assert names == ["Alice", "Bob"]
 
 
-async def test_where_with_comparison_operators(harness: _SqlAlchemyHarness) -> None:
+async def test_where_with_comparison_operators(harness: BaseHarness) -> None:
     await _seed_customers(harness)
     async with harness.transaction() as uow:
         high_score = await uow.query(_QCust).where(_QCust.score > 5).all()
@@ -93,14 +93,14 @@ async def test_where_with_comparison_operators(harness: _SqlAlchemyHarness) -> N
     assert names == ["Alice", "Carol"]
 
 
-async def test_order_by_and_limit(harness: _SqlAlchemyHarness) -> None:
+async def test_order_by_and_limit(harness: BaseHarness) -> None:
     await _seed_customers(harness)
     async with harness.transaction() as uow:
         top2 = await uow.query(_QCust).order_by(_QCust.score.desc()).limit(2).all()
     assert [c.name for c in top2] == ["Alice", "Carol"]
 
 
-async def test_one_or_none(harness: _SqlAlchemyHarness) -> None:
+async def test_one_or_none(harness: BaseHarness) -> None:
     await _seed_customers(harness)
     async with harness.transaction() as uow:
         alice = await uow.query(_QCust).where(_QCust.name == "Alice").one_or_none()
@@ -109,7 +109,7 @@ async def test_one_or_none(harness: _SqlAlchemyHarness) -> None:
     assert nobody is None
 
 
-async def test_first_returns_one(harness: _SqlAlchemyHarness) -> None:
+async def test_first_returns_one(harness: BaseHarness) -> None:
     await _seed_customers(harness)
     async with harness.transaction() as uow:
         first = await uow.query(_QCust).order_by(_QCust.score.desc()).first()
@@ -117,7 +117,7 @@ async def test_first_returns_one(harness: _SqlAlchemyHarness) -> None:
     assert first.name == "Alice"
 
 
-async def test_count_honors_where(harness: _SqlAlchemyHarness) -> None:
+async def test_count_honors_where(harness: BaseHarness) -> None:
     await _seed_customers(harness)
     async with harness.transaction() as uow:
         total = await uow.query(_QCust).count()
@@ -126,7 +126,7 @@ async def test_count_honors_where(harness: _SqlAlchemyHarness) -> None:
     assert vips == 2
 
 
-async def test_exists(harness: _SqlAlchemyHarness) -> None:
+async def test_exists(harness: BaseHarness) -> None:
     await _seed_customers(harness)
     async with harness.transaction() as uow:
         has_vip = await uow.query(_QCust).where(_QCust.note == "vip").exists()
@@ -135,14 +135,14 @@ async def test_exists(harness: _SqlAlchemyHarness) -> None:
     assert has_unknown is False
 
 
-async def test_column_projection_returns_rows(harness: _SqlAlchemyHarness) -> None:
+async def test_column_projection_returns_rows(harness: BaseHarness) -> None:
     await _seed_customers(harness)
     async with harness.transaction() as uow:
         rows = await uow.query(_QCust.name, _QCust.score).order_by(_QCust.name).all()
     assert rows == [("Alice", 10), ("Bob", 5), ("Carol", 8), ("Dave", 3)]
 
 
-async def test_aggregation_with_group_by(harness: _SqlAlchemyHarness) -> None:
+async def test_aggregation_with_group_by(harness: BaseHarness) -> None:
     customers = await _seed_customers(harness)
     async with harness.transaction() as uow:
         await uow.save(_QOrder(customer_id=customers[0].id, total_cents=10000))
@@ -168,7 +168,7 @@ async def test_aggregation_with_group_by(harness: _SqlAlchemyHarness) -> None:
     assert by_customer[customers[1].id] == (2500, 1)
 
 
-async def test_subquery_composition(harness: _SqlAlchemyHarness) -> None:
+async def test_subquery_composition(harness: BaseHarness) -> None:
     customers = await _seed_customers(harness)
     async with harness.transaction() as uow:
         await uow.save(_QOrder(customer_id=customers[0].id, total_cents=10000))

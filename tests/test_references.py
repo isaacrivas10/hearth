@@ -4,10 +4,9 @@ from collections.abc import AsyncIterator, Callable
 
 import pytest
 import sqlalchemy.exc
-from sqlalchemy.exc import IntegrityError
 
-from hearth import Entity, EntityId, ForeignKey, References
-from hearth.testing._base import _SqlAlchemyHarness
+from hearth import Entity, EntityId, ForeignKey, IntegrityError, References
+from hearth.testing import BaseHarness
 
 
 class _RCustomer(Entity, plugin="ref_test"):
@@ -70,8 +69,8 @@ _ALL_REF_ENTITIES: list[type[Entity]] = [
 
 @pytest.fixture
 async def harness(
-    make_harness: Callable[[], _SqlAlchemyHarness],
-) -> AsyncIterator[_SqlAlchemyHarness]:
+    make_harness: Callable[[], BaseHarness],
+) -> AsyncIterator[BaseHarness]:
     h = make_harness()
     await h.setup(entities=_ALL_REF_ENTITIES)
     try:
@@ -94,7 +93,7 @@ def test_bare_entity_annotation_creates_fk_and_relationship() -> None:
     assert hasattr(_RBareOrder, "customer")
 
 
-async def test_explicit_references_passes_on_delete(harness: _SqlAlchemyHarness) -> None:
+async def test_explicit_references_passes_on_delete(harness: BaseHarness) -> None:
     cust = _RCustomer(name="Alice")
     async with harness.transaction() as uow:
         await uow.save(cust)
@@ -120,7 +119,7 @@ def test_set_null_requires_nullable_annotation() -> None:
         _ = _Bad
 
 
-async def test_set_null_works_with_nullable(harness: _SqlAlchemyHarness) -> None:
+async def test_set_null_works_with_nullable(harness: BaseHarness) -> None:
     cust = _RCustomer(name="Alice")
     async with harness.transaction() as uow:
         await uow.save(cust)
@@ -136,7 +135,7 @@ async def test_set_null_works_with_nullable(harness: _SqlAlchemyHarness) -> None
     assert reloaded.customer_id is None
 
 
-async def test_restrict_blocks_parent_delete(harness: _SqlAlchemyHarness) -> None:
+async def test_restrict_blocks_parent_delete(harness: BaseHarness) -> None:
     cust = _RCustomer(name="Alice")
     async with harness.transaction() as uow:
         await uow.save(cust)
@@ -149,7 +148,7 @@ async def test_restrict_blocks_parent_delete(harness: _SqlAlchemyHarness) -> Non
             await uow.delete(cust)
 
 
-async def test_relationship_access_without_load_raises(harness: _SqlAlchemyHarness) -> None:
+async def test_relationship_access_without_load_raises(harness: BaseHarness) -> None:
     cust = _RCustomer(name="Alice")
     order = _RBareOrder(customer=cust)
     async with harness.transaction() as uow:
@@ -162,7 +161,7 @@ async def test_relationship_access_without_load_raises(harness: _SqlAlchemyHarne
             _ = loaded.customer
 
 
-async def test_with_loaded_eager_loads_relationship(harness: _SqlAlchemyHarness) -> None:
+async def test_with_loaded_eager_loads_relationship(harness: BaseHarness) -> None:
     cust = _RCustomer(name="Alice")
     order = _RBareOrder(customer=cust)
     async with harness.transaction() as uow:
@@ -180,7 +179,7 @@ async def test_with_loaded_eager_loads_relationship(harness: _SqlAlchemyHarness)
     assert loaded.customer.name == "Alice"
 
 
-async def test_relationship_traversal_in_filter(harness: _SqlAlchemyHarness) -> None:
+async def test_relationship_traversal_in_filter(harness: BaseHarness) -> None:
     alice = _RCustomer(name="Alice")
     bob = _RCustomer(name="Bob")
     o1 = _RBareOrder(customer=alice)
@@ -265,7 +264,7 @@ def test_custom_column_name_must_exist() -> None:
         _ = _BadCustom
 
 
-async def test_multiple_fks_to_same_target(harness: _SqlAlchemyHarness) -> None:
+async def test_multiple_fks_to_same_target(harness: BaseHarness) -> None:
     src = _RAccount(label="src")
     dst = _RAccount(label="dst")
     transfer = _RTransfer(from_account=src, to_account=dst)
@@ -287,7 +286,7 @@ async def test_multiple_fks_to_same_target(harness: _SqlAlchemyHarness) -> None:
     assert loaded.to_account_id == dst.id
 
 
-async def test_self_referential_via_string(harness: _SqlAlchemyHarness) -> None:
+async def test_self_referential_via_string(harness: BaseHarness) -> None:
     root = _RCategory(name="root")
     async with harness.transaction() as uow:
         await uow.save(root)
@@ -303,7 +302,7 @@ async def test_self_referential_via_string(harness: _SqlAlchemyHarness) -> None:
     assert reloaded.parent_id is None
 
 
-async def test_construction_does_not_require_fk_column(harness: _SqlAlchemyHarness) -> None:
+async def test_construction_does_not_require_fk_column(harness: BaseHarness) -> None:
     cust = _RCustomer(name="Alice")
     async with harness.transaction() as uow:
         await uow.save(cust)
@@ -313,7 +312,7 @@ async def test_construction_does_not_require_fk_column(harness: _SqlAlchemyHarne
     assert order.customer_id == cust.id
 
 
-async def test_soft_reference_via_entity_id_still_works(harness: _SqlAlchemyHarness) -> None:
+async def test_soft_reference_via_entity_id_still_works(harness: BaseHarness) -> None:
     cols = _columns(_RSoftRefOrder)
     assert "customer_id" in cols
     fks = list(cols["customer_id"].foreign_keys)  # type: ignore[attr-defined]

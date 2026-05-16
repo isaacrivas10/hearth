@@ -6,7 +6,7 @@ from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict
 
-from hearth.primitives.identity import Identity
+from hearth.primitives.actor import Actor
 from hearth.unit_of_work import UnitOfWork
 
 
@@ -20,5 +20,5 @@ class Action(BaseModel):
             cls._hearth_plugin = plugin
         super().__init_subclass__(**kwargs)
 
-    async def handle(self, uow: UnitOfWork, identity: Identity) -> Any:
+    async def handle(self, uow: UnitOfWork, actor: Actor) -> Any:
         raise NotImplementedError(f"{type(self).__name__} must implement handle()")

@@ -1,6 +1,6 @@
-"""Dialect-aware async engine factory — shared by the CLI, the in-memory Harness,
-and PostgresHarness. Centralises the SQLite-specific quirks (StaticPool, FK pragma)
-so they don't drift across consumers."""
+"""Dialect-aware async engine factory — shared by the CLI, `InMemoryHarness`,
+and `PostgresHarness`. Centralises the SQLite-specific quirks (StaticPool, FK
+pragma) so they don't drift across consumers."""
 
 from __future__ import annotations
 

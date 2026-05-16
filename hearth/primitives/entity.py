@@ -11,10 +11,11 @@ import sys
 from typing import Any, ClassVar, cast, dataclass_transform, get_origin, get_type_hints
 
 from pydantic import BaseModel, TypeAdapter
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import composite, mapped_column, relationship
 from sqlalchemy.orm.decl_api import DCTransformDeclarative
 
+from hearth.constraints import Unique
 from hearth.fields import (
     Field,
     _FieldMarker,  # pyright: ignore[reportPrivateUsage]
@@ -79,6 +80,7 @@ class _EntityMeta(DCTransformDeclarative):
     ) -> Any:
         fk_column_names: set[str] = set()
         composite_subcolumns: set[str] = set()
+        _install_table_args(namespace)
         if not namespace.get("__abstract__", False):
             raw_annotations = namespace.get("__annotations__", {})
             resolved = _resolve_annotations(
@@ -144,6 +146,35 @@ def _annotation_is_optional(annot: Any) -> bool:
     if isinstance(annot, str):
         return annot.endswith("| None") or annot.endswith("|None") or "Optional[" in annot
     return is_optional(annot)
+
+
+def _install_table_args(namespace: dict[str, Any]) -> None:
+    """Translate `__hearth_table_args__` markers into SQLAlchemy `__table_args__`.
+
+    Plugins declare table-level constraints (e.g., composite unique indexes)
+    via kernel-blessed markers so they never import from `sqlalchemy`.
+    """
+    markers = namespace.pop("__hearth_table_args__", ())
+    if not markers:
+        return
+    sa_args: list[Any] = []
+    for marker in markers:
+        if isinstance(marker, Unique):
+            sa_args.append(UniqueConstraint(*marker.columns))
+        else:
+            raise TypeError(
+                f"Unknown __hearth_table_args__ marker: {marker!r}. Expected one of: Unique.",
+            )
+    existing = namespace.get("__table_args__")
+    if existing is None:
+        namespace["__table_args__"] = tuple(sa_args)
+    elif isinstance(existing, tuple):
+        namespace["__table_args__"] = (*existing, *sa_args)
+    else:
+        raise TypeError(
+            "__table_args__ already declared as a non-tuple; "
+            "cannot merge __hearth_table_args__ into it.",
+        )
 
 
 def _inherit_plugin(bases: tuple[type, ...]) -> str | None:

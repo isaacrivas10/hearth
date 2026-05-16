@@ -8,7 +8,7 @@ from collections.abc import AsyncIterator, Callable
 import pytest
 
 from hearth import Entity, Value, agg
-from hearth.testing._base import _SqlAlchemyHarness
+from hearth.testing import BaseHarness
 
 
 class _Money(Value):
@@ -52,8 +52,8 @@ _ALL: list[type[Entity]] = [_CompOrder, _NullCompOrder, _NestedHolder, _BagHolde
 
 @pytest.fixture
 async def harness(
-    make_harness: Callable[[], _SqlAlchemyHarness],
-) -> AsyncIterator[_SqlAlchemyHarness]:
+    make_harness: Callable[[], BaseHarness],
+) -> AsyncIterator[BaseHarness]:
     h = make_harness()
     await h.setup(entities=_ALL)
     try:
@@ -70,7 +70,7 @@ def test_composable_value_uses_composite_columns() -> None:
     assert "total" not in cols
 
 
-async def test_save_and_load_composite_roundtrips(harness: _SqlAlchemyHarness) -> None:
+async def test_save_and_load_composite_roundtrips(harness: BaseHarness) -> None:
     o = _CompOrder(total=_Money(amount_cents=10000, currency="HNL"))
     async with harness.transaction() as uow:
         await uow.save(o)
@@ -80,7 +80,7 @@ async def test_save_and_load_composite_roundtrips(harness: _SqlAlchemyHarness) -
     assert loaded.total == _Money(amount_cents=10000, currency="HNL")
 
 
-async def test_nullable_composite_stores_all_nulls(harness: _SqlAlchemyHarness) -> None:
+async def test_nullable_composite_stores_all_nulls(harness: BaseHarness) -> None:
     o = _NullCompOrder()
     async with harness.transaction() as uow:
         await uow.save(o)
@@ -96,7 +96,7 @@ async def test_nullable_composite_stores_all_nulls(harness: _SqlAlchemyHarness) 
 
 
 async def test_nullable_composite_with_value_loads_correctly(
-    harness: _SqlAlchemyHarness,
+    harness: BaseHarness,
 ) -> None:
     o = _NullCompOrder(total=_Money(amount_cents=500, currency="USD"))
     async with harness.transaction() as uow:
@@ -107,7 +107,7 @@ async def test_nullable_composite_with_value_loads_correctly(
     assert loaded.total == _Money(amount_cents=500, currency="USD")
 
 
-async def test_filter_on_composite_subfield(harness: _SqlAlchemyHarness) -> None:
+async def test_filter_on_composite_subfield(harness: BaseHarness) -> None:
     big = _CompOrder(total=_Money(amount_cents=1000, currency="HNL"))
     small = _CompOrder(total=_Money(amount_cents=50, currency="HNL"))
     async with harness.transaction() as uow:
@@ -119,7 +119,7 @@ async def test_filter_on_composite_subfield(harness: _SqlAlchemyHarness) -> None
     assert [r.id for r in rows] == [big.id]
 
 
-async def test_aggregate_on_composite_subfield(harness: _SqlAlchemyHarness) -> None:
+async def test_aggregate_on_composite_subfield(harness: BaseHarness) -> None:
     async with harness.transaction() as uow:
         await uow.save(_CompOrder(total=_Money(amount_cents=1000, currency="HNL")))
         await uow.save(_CompOrder(total=_Money(amount_cents=2500, currency="HNL")))
@@ -138,7 +138,7 @@ async def test_aggregate_on_composite_subfield(harness: _SqlAlchemyHarness) -> N
     assert by_currency == {"HNL": 3500, "USD": 400}
 
 
-async def test_equality_filter_on_whole_composite(harness: _SqlAlchemyHarness) -> None:
+async def test_equality_filter_on_whole_composite(harness: BaseHarness) -> None:
     target = _Money(amount_cents=10000, currency="HNL")
     o = _CompOrder(total=target)
     async with harness.transaction() as uow:

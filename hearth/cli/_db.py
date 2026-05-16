@@ -9,6 +9,7 @@ import typer
 from sqlalchemy import inspect
 
 from hearth.cli import _wrap_command  # pyright: ignore[reportPrivateUsage]
+from hearth.cli._plugins import _print_registry_build_error  # pyright: ignore[reportPrivateUsage]
 from hearth.kernel._engine import make_async_engine  # pyright: ignore[reportPrivateUsage]
 from hearth.kernel.persistence import METADATA
 from hearth.kernel.registry import Registry, RegistryBuildError
@@ -44,12 +45,25 @@ def init_cmd() -> None:
 
 async def _init_impl(url: str) -> None:
     typer.echo(f"Connecting to: {url}")
+    # Build the registry first so plugin entity modules import and their
+    # tables register with METADATA before create_all runs.
+    try:
+        registry = Registry.build()
+    except RegistryBuildError as err:
+        _print_registry_build_error(err)
+        raise typer.Exit(1) from err
     engine = make_async_engine(url)
     try:
         async with engine.begin() as conn:
             await conn.run_sync(METADATA.create_all)
-        typer.echo("Created kernel tables:")
+        typer.echo("Created tables:")
         typer.echo("  [OK] _hearth_outbox")
+        for alias in sorted(registry.plugins):
+            info = registry.plugins[alias]
+            for ent in info.entities:
+                tablename = getattr(ent, "__tablename__", None)
+                if tablename:
+                    typer.echo(f"  [OK] {tablename}")
         typer.echo("Done.")
     finally:
         await engine.dispose()

@@ -5,7 +5,7 @@ from collections.abc import AsyncIterator
 import pytest
 
 from hearth import Entity, EntityId, EntityNotFoundError, Event
-from hearth.testing import Harness
+from hearth.testing import InMemoryHarness
 
 
 class _UowCust(Entity, plugin="test_uow"):
@@ -18,8 +18,8 @@ class _CreatedEvent(Event):
 
 
 @pytest.fixture
-async def harness() -> AsyncIterator[Harness]:
-    h = Harness()
+async def harness() -> AsyncIterator[InMemoryHarness]:
+    h = InMemoryHarness()
     await h.setup(entities=[_UowCust])
     try:
         await h.reset()
@@ -28,7 +28,7 @@ async def harness() -> AsyncIterator[Harness]:
         await h.teardown()
 
 
-async def test_save_persists_with_auto_assigned_id(harness: Harness) -> None:
+async def test_save_persists_with_auto_assigned_id(harness: InMemoryHarness) -> None:
     c = _UowCust(name="Alice")
     # Auto-id is assigned at construction so plugin code can use it
     # before save completes (e.g., for emit referencing customer.id).
@@ -38,7 +38,7 @@ async def test_save_persists_with_auto_assigned_id(harness: Harness) -> None:
     assert c.id is not None
 
 
-async def test_get_retrieves_committed_entity(harness: Harness) -> None:
+async def test_get_retrieves_committed_entity(harness: InMemoryHarness) -> None:
     c = _UowCust(name="Alice")
     async with harness.transaction() as uow:
         await uow.save(c)
@@ -51,14 +51,14 @@ async def test_get_retrieves_committed_entity(harness: Harness) -> None:
     assert loaded.name == "Alice"
 
 
-async def test_get_raises_on_missing(harness: Harness) -> None:
+async def test_get_raises_on_missing(harness: InMemoryHarness) -> None:
     bogus = EntityId.new()
     async with harness.transaction() as uow:
         with pytest.raises(EntityNotFoundError):
             await uow.get(_UowCust, bogus)
 
 
-async def test_within_transaction_save_visible_to_get(harness: Harness) -> None:
+async def test_within_transaction_save_visible_to_get(harness: InMemoryHarness) -> None:
     c = _UowCust(name="Alice")
     async with harness.transaction() as uow:
         await uow.save(c)
@@ -67,7 +67,7 @@ async def test_within_transaction_save_visible_to_get(harness: Harness) -> None:
         assert loaded.name == "Alice"
 
 
-async def test_emit_visible_after_commit(harness: Harness) -> None:
+async def test_emit_visible_after_commit(harness: InMemoryHarness) -> None:
     cid = EntityId.new()
     async with harness.transaction() as uow:
         uow.emit(_CreatedEvent(customer_id=cid, name="Alice"))
@@ -77,7 +77,7 @@ async def test_emit_visible_after_commit(harness: Harness) -> None:
     assert events[0].name == "Alice"
 
 
-async def test_rollback_discards_save(harness: Harness) -> None:
+async def test_rollback_discards_save(harness: InMemoryHarness) -> None:
     c = _UowCust(name="Alice")
     with pytest.raises(RuntimeError):
         async with harness.transaction() as uow:
@@ -90,7 +90,7 @@ async def test_rollback_discards_save(harness: Harness) -> None:
             await uow.get(_UowCust, c.id)
 
 
-async def test_rollback_discards_emitted_events(harness: Harness) -> None:
+async def test_rollback_discards_emitted_events(harness: InMemoryHarness) -> None:
     cid = EntityId.new()
     with pytest.raises(RuntimeError):
         async with harness.transaction() as uow:
@@ -100,7 +100,7 @@ async def test_rollback_discards_emitted_events(harness: Harness) -> None:
     assert len(await harness.events_of_type(_CreatedEvent)) == 0
 
 
-async def test_save_and_emit_atomically(harness: Harness) -> None:
+async def test_save_and_emit_atomically(harness: InMemoryHarness) -> None:
     c = _UowCust(name="Alice")
     async with harness.transaction() as uow:
         await uow.save(c)
@@ -112,7 +112,7 @@ async def test_save_and_emit_atomically(harness: Harness) -> None:
     assert len(await harness.events_of_type(_CreatedEvent)) == 1
 
 
-async def test_delete_removes_committed_entity(harness: Harness) -> None:
+async def test_delete_removes_committed_entity(harness: InMemoryHarness) -> None:
     c = _UowCust(name="Alice")
     async with harness.transaction() as uow:
         await uow.save(c)
@@ -126,7 +126,7 @@ async def test_delete_removes_committed_entity(harness: Harness) -> None:
             await uow.get(_UowCust, c.id)
 
 
-async def test_query_where_filters_results(harness: Harness) -> None:
+async def test_query_where_filters_results(harness: InMemoryHarness) -> None:
     async with harness.transaction() as uow:
         await uow.save(_UowCust(name="Alice"))
         await uow.save(_UowCust(name="Bob"))
@@ -137,7 +137,7 @@ async def test_query_where_filters_results(harness: Harness) -> None:
     assert [c.name for c in found] == ["Alice"]
 
 
-async def test_query_count(harness: Harness) -> None:
+async def test_query_count(harness: InMemoryHarness) -> None:
     async with harness.transaction() as uow:
         await uow.save(_UowCust(name="Alice"))
         await uow.save(_UowCust(name="Bob"))
@@ -149,7 +149,7 @@ async def test_query_count(harness: Harness) -> None:
     assert total == 3
 
 
-async def test_query_order_by_and_limit(harness: Harness) -> None:
+async def test_query_order_by_and_limit(harness: InMemoryHarness) -> None:
     async with harness.transaction() as uow:
         for name in ("Carol", "Alice", "Bob"):
             await uow.save(_UowCust(name=name))
