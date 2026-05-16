@@ -1,0 +1,27 @@
+[project]
+name = "hearth-auth"
+version = "0.0.1"
+description = "Hearth plugin: Users, Roles, Permissions, ApiKeys, and the actions that operate on them."
+requires-python = ">=3.13"
+dependencies = [
+    "hearth",
+    "hearth-commons",
+    "argon2-cffi>=23.1",
+]
+
+[project.entry-points."hearth.plugins"]
+auth = "hearth_auth"
+
+[project.entry-points."hearth.cli"]
+auth = "hearth_auth.cli:auth_app"
+
+[tool.uv.sources]
+hearth = { workspace = true }
+hearth-commons = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["hearth_auth"]

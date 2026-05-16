@@ -13,8 +13,8 @@ dependencies = [
 
 [project.optional-dependencies]
 commons = ["hearth-commons"]
-commerce = ["hearth-commerce"]
-all = ["hearth-commons", "hearth-commerce"]
+auth = ["hearth-auth"]
+all = ["hearth-commons", "hearth-auth"]
 
 [project.scripts]
 hearth = "hearth.cli:app"
@@ -27,18 +27,18 @@ build-backend = "hatchling.build"
 packages = ["hearth"]
 
 [tool.uv.workspace]
-members = ["plugins/commons", "plugins/commerce"]
+members = ["plugins/commons", "plugins/auth"]
 
 [tool.uv.sources]
 hearth-commons = { workspace = true }
-hearth-commerce = { workspace = true }
+hearth-auth = { workspace = true }
 
 [dependency-groups]
 dev = [
     # Workspace plugins installed for development; production users opt in via
-    # extras (`pip install hearth[commerce]`).
+    # extras (`pip install hearth[commons]`).
     "hearth-commons",
-    "hearth-commerce",
+    "hearth-auth",
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     # pgserver intentionally omitted: no cp313 wheel as of 2026-05-02.
@@ -63,7 +63,7 @@ select = ["E", "F", "W", "I", "B", "UP", "N", "RUF", "SIM"]
 [tool.ruff.lint.isort]
 # Treat workspace plugins as first-party so all hearth* imports group together
 # instead of fragmenting into "kernel = first-party, plugins = third-party".
-known-first-party = ["hearth", "hearth_commons", "hearth_commerce"]
+known-first-party = ["hearth", "hearth_commons", "hearth_auth"]
 
 [tool.basedpyright]
 typeCheckingMode = "strict"
@@ -73,12 +73,12 @@ venv = ".venv"
 include = [
     "hearth",
     "plugins/commons/hearth_commons",
-    "plugins/commerce/hearth_commerce",
+    "plugins/auth/hearth_auth",
     "scripts",
 ]
 exclude = ["**/tests/**", "**/.venv/**"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["tests", "plugins/commons/tests", "plugins/commerce/tests"]
+testpaths = ["tests", "plugins/commons/tests", "plugins/auth/tests"]
 addopts = ["-ra", "--strict-markers", "--import-mode=importlib"]
