@@ -54,7 +54,7 @@ docs/core/
 │   ├── value.md               # the Value primitive *contract*
 │   ├── action.md
 │   ├── job.md
-│   ├── identity.md
+│   ├── actor.md
 │   └── view.md
 ├── fields.md                  ↔ hearth/fields.py
 ├── references.md              ↔ hearth/references.py

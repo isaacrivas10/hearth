@@ -278,3 +278,41 @@ A separate clarification: `Timestamp` is **not a Value**. It is a
 field declaration (`fields.Timestamp(auto_now_add=True)`) that
 produces a timezone-aware `datetime` at runtime. There is no kernel
 `Timestamp` value class.
+
+## Amendment 2026-05-15 — `Identity` renamed to `Actor`; concrete actors live in plugins
+
+The "Identity" primitive in the original ADR is renamed to **Actor**. The
+prior `Identity(BaseModel)` hierarchy with thin `User(Identity)` /
+`System(Identity)` / `ApiKey(Identity)` subclasses is replaced with:
+
+1. **`Actor`** as a runtime-checkable `Protocol` exposing:
+   - `actor_kind: ClassVar[str]` — snake_case discriminator (e.g. `"user"`,
+     `"system"`, `"plugin"`, `"api_key"`).
+   - `async def has_permission(uow, permission: str) -> bool` — resolution
+     semantics live on the actor itself; the kernel knows about strings, not
+     about how permissions are stored.
+
+2. **Kernel-shipped dataless actors** for cases with no backing row:
+   - `System` — kernel-internal callers (outbox dispatch, bootstrap).
+   - `Anonymous` — public, unauthenticated endpoints.
+   - `PluginActor(alias=str)` — a plugin running its own scheduled work.
+
+3. **Plugin-contributed entity-actors** for cases with a backing row:
+   - `hearth-auth` ships `User(Entity)` and `ApiKey(Entity)`, both declaring
+     `actor_kind` and implementing `has_permission` against their own joins.
+   - Future plugins can mint additional actor-capable entities the same way
+     (e.g., a hypothetical `WhatsAppNumber(Entity)`).
+
+**Action signature update.** `Action.handle(self, uow, identity)` becomes
+`Action.handle(self, uow, actor)`. The harness API exposes the kwarg as
+`actor=` instead of `identity=`.
+
+**Outbox serialization.** The outbox `actor` JSONB column stores
+`{"kind": actor.actor_kind, "id": <entity id or null>, "meta": <type-specific dict>}`.
+Plugin-actor metadata (alias, future delegation chains) lives under `meta`
+so the kernel doesn't need to update the schema when new actor types are
+added.
+
+**Companion specs.** See [docs/core/primitives/actor.md](../core/primitives/actor.md)
+for the primitive contract and [docs/core/plugins/auth.md](../core/plugins/auth.md)
+for the auth plugin's SDK surface.
