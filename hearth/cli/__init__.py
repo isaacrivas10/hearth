@@ -72,8 +72,12 @@ from hearth.cli._db import db_app  # noqa: E402  pyright: ignore[reportPrivateUs
 
 app.add_typer(db_app, name="db")
 
+from hearth.cli._migrate import migrate_app  # noqa: E402  pyright: ignore[reportPrivateUsage]
 
-_RESERVED_CLI_NAMES = frozenset({"plugins", "db"})
+app.add_typer(migrate_app, name="migrate")
+
+
+_RESERVED_CLI_NAMES = frozenset({"plugins", "db", "migrate"})
 
 
 def _register_plugin_cli_groups() -> None:

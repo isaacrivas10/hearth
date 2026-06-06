@@ -6,13 +6,18 @@ import asyncio
 import os
 
 import typer
-from sqlalchemy import inspect
 
 from hearth.cli import _wrap_command  # pyright: ignore[reportPrivateUsage]
 from hearth.cli._plugins import _print_registry_build_error  # pyright: ignore[reportPrivateUsage]
 from hearth.kernel._engine import make_async_engine  # pyright: ignore[reportPrivateUsage]
+from hearth.kernel.migrations.alembic_config import build_config
+from hearth.kernel.migrations.applier import AppliedReport, apply
+from hearth.kernel.migrations.audit_log import SCHEMA_LOG_METADATA, read_applied_revisions
+from hearth.kernel.migrations.planner import PlannedRevision, compute_plan
 from hearth.kernel.persistence import METADATA
 from hearth.kernel.registry import Registry, RegistryBuildError
+from hearth.migrations import OpSummary
+from hearth.primitives.actor import System
 
 db_app = typer.Typer(help="Database operations.", no_args_is_help=True)
 
@@ -64,6 +69,9 @@ async def _init_impl(url: str) -> None:
                 tablename = getattr(ent, "__tablename__", None)
                 if tablename:
                     typer.echo(f"  [OK] {tablename}")
+        async with engine.begin() as conn:
+            await conn.run_sync(SCHEMA_LOG_METADATA.create_all)
+        typer.echo("  [OK] _hearth_schema_log")
         typer.echo("Done.")
     finally:
         await engine.dispose()
@@ -78,22 +86,120 @@ def status_cmd() -> None:
 
 
 async def _status_impl(url: str) -> None:
-    typer.echo(f"Database: {url}")
+    try:
+        registry = Registry.build()
+    except RegistryBuildError as err:
+        _print_registry_build_error(err)
+        raise typer.Exit(1) from err
     engine = make_async_engine(url)
     try:
-        async with engine.connect() as conn:
-            existing = await conn.run_sync(
-                lambda sync_conn: set(inspect(sync_conn).get_table_names()),
-            )
-        typer.echo("  Connection:     OK")
-        outbox_status = (
-            "[present]" if "_hearth_outbox" in existing else "[missing - run `hearth db init`]"
-        )
-        typer.echo(f"  Kernel tables:  _hearth_outbox {outbox_status}")
-        typer.echo("  Plugin tables:  0 tracked  (schema log not yet initialized)")
-        typer.echo("  Orphan tables:  (none detected)")
+        cfg = build_config(registry, url)
+        plan = await compute_plan(engine, cfg, registry)
+
+        typer.echo(f"Database: {url}")
+        typer.echo("")
+        typer.echo("Plugins:")
+        for alias in sorted(registry.plugins):
+            applied_count = len(await read_applied_revisions(engine, plugin=alias))
+            pending = [r for r in plan.revisions if r.plugin == alias]
+            typer.echo(f"  {alias}: {applied_count} applied, {len(pending)} pending")
+
+        if plan.has_destructive:
+            typer.echo("")
+            typer.echo("WARNING: pending plan contains destructive operations.")
     finally:
         await engine.dispose()
+
+
+@db_app.command("plan")
+@_wrap_command
+def plan_cmd() -> None:
+    """Show pending migrations without applying."""
+    url = _require_database_url()
+    asyncio.run(_plan_impl(url))
+
+
+async def _plan_impl(url: str) -> None:
+    try:
+        registry = Registry.build()
+    except RegistryBuildError as err:
+        _print_registry_build_error(err)
+        raise typer.Exit(1) from err
+    engine = make_async_engine(url)
+    try:
+        cfg = build_config(registry, url)
+        plan = await compute_plan(engine, cfg, registry)
+        typer.echo(plan.format())
+        if plan.has_destructive:
+            typer.echo("")
+            typer.echo(
+                "Plan contains destructive operations — "
+                "will require interactive confirmation."
+            )
+    finally:
+        await engine.dispose()
+
+
+@db_app.command("migrate")
+@_wrap_command
+def migrate_cmd(
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Same as `plan`; show without applying."
+    ),
+) -> None:
+    """Apply pending migrations. Destructive ops prompt interactively."""
+    url = _require_database_url()
+    if dry_run:
+        asyncio.run(_plan_impl(url))
+        return
+    asyncio.run(_migrate_impl(url))
+
+
+async def _migrate_impl(url: str) -> None:
+    try:
+        registry = Registry.build()
+    except RegistryBuildError as err:
+        _print_registry_build_error(err)
+        raise typer.Exit(1) from err
+    engine = make_async_engine(url)
+    try:
+        cfg = build_config(registry, url)
+        plan = await compute_plan(engine, cfg, registry)
+        if not plan.revisions:
+            typer.echo("No pending migrations.")
+            return
+        typer.echo(plan.format())
+        typer.echo("")
+        report = await apply(
+            plan,
+            config=cfg,
+            engine=engine,
+            actor=System(),
+            registry=registry,
+            confirm=_tty_confirm,
+        )
+        _print_report(report)
+    finally:
+        await engine.dispose()
+
+
+async def _tty_confirm(revision: PlannedRevision, op: OpSummary) -> bool:
+    typer.echo("")
+    typer.echo(f"DESTRUCTIVE: plugin={revision.plugin} revision={revision.revision_id}")
+    typer.echo(f"  description: {revision.description}")
+    typer.echo(f"  op: {op.desc}")
+    answer = typer.prompt("Apply this op? [y/N]", default="N", show_default=False)
+    return answer.strip().lower() in {"y", "yes"}
+
+
+def _print_report(report: AppliedReport) -> None:
+    typer.echo("")
+    typer.echo(f"Applied {len(report.applied_revisions)} revision(s):")
+    for plugin, rev in report.applied_revisions:
+        typer.echo(f"  [OK] {plugin}:{rev}")
+    if report.aborted_at is not None:
+        plugin, rev = report.aborted_at
+        typer.echo(f"Aborted at {plugin}:{rev}.")
 
 
 @db_app.command("graph")

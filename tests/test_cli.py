@@ -324,9 +324,10 @@ def test_db_status_reports_connection_ok(tmp_path, monkeypatch) -> None:
     runner.invoke(app, ["db", "init"])
     result = runner.invoke(app, ["db", "status"])
     assert result.exit_code == 0
-    assert "Connection" in result.stdout
-    assert "OK" in result.stdout
-    assert "_hearth_outbox" in result.stdout
+    assert f"Database: {url}" in result.stdout
+    assert "Plugins:" in result.stdout
+    assert "applied" in result.stdout
+    assert "pending" in result.stdout
 
 
 def test_db_init_creates_plugin_tables(tmp_path, monkeypatch) -> None:
