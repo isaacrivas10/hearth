@@ -181,6 +181,19 @@ class Registry:
     def topological_order(self) -> list[str]:
         return list(self._topological_order)
 
+    def full_plugin_order(self) -> list[str]:
+        """Return `topological_order()` plus any plugins not in that cached
+        list (in `self.plugins` insertion order).
+
+        Tests inject plugins via `registry.plugins[...] = ...` after `build()`,
+        which bypasses the cached topological sort. Callers that must iterate
+        the entire installed plugin set (planner, adoption, etc.) use this
+        helper so test-injected plugins are still visited, while the
+        properly-sorted plugins keep their cross-plugin dependency order.
+        """
+        order = self.topological_order()
+        return order + [a for a in self.plugins if a not in order]
+
     def entities_for(self, alias: str) -> list[type[Entity]]:
         return self.get(alias).entities
 

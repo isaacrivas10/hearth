@@ -77,3 +77,29 @@ class PluginActor:
 
     async def has_permission(self, uow: UnitOfWork, permission: str) -> bool:
         return True  # plugin code is trusted; permission checks gate external callers
+
+
+def serialize_actor(actor: Actor) -> str:
+    """Render an Actor in the audit-log string format: `"kind:id"`.
+
+    This is the canonical representation written to single-string audit
+    columns (e.g., `_hearth_schema_log.applied_by`) where a structured
+    JSON shape (kind/id/meta) would be overkill. It is intentionally
+    distinct from the JSON form used in the outbox `actor` column.
+
+    - `PluginActor` renders as `"plugin:<alias>"` (the alias is the actor's
+      identifying field — it has no separate `id`).
+    - Entity actors with a non-empty `id` render as `"<kind>:<id>"`.
+    - Dataless actors (`System`, `Anonymous`) have no `id` and render as
+      the bare `actor_kind` (e.g., `"system"`).
+    """
+    if isinstance(actor, PluginActor):
+        return f"plugin:{actor.alias}"
+    raw_id = getattr(actor, "id", None)
+    # `is not None` (not truthiness) so falsy-but-valid ids — `0`, empty
+    # string, `False` — render as `kind:<id>` rather than collapsing to the
+    # bare kind. UUIDs are never falsy in practice, but the principle
+    # matters for future entity-actors with integer ids.
+    if raw_id is not None:
+        return f"{actor.actor_kind}:{raw_id}"
+    return actor.actor_kind
