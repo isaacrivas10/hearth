@@ -309,3 +309,18 @@ The walled garden is unchanged: plugins still cannot import from
 cannot reach into kernel internals. The kernel's surface is now
 *stricter* — by shipping fewer concrete types, the kernel resists
 domain scope creep more reliably.
+
+## Amendment 2026-05-18 — migration files may import from `alembic` and `sqlalchemy`
+
+The "Plugins do not" list above forbids plugins from importing `sqlalchemy`. This amendment narrows the rule: it applies to **runtime** code (entities, actions, events, jobs, views), not to **migration files**.
+
+Migration files in a plugin's `migrations/` directory are tooling, not runtime code. They run during schema evolution (once per revision per deploy), not during request handling. The walled-garden rule exists to keep plugin business logic decoupled from persistence internals so the kernel can evolve them without breaking plugins. Migration files are inherently schema/DDL code; restricting them to a Hearth facade would force the kernel to reinvent Alembic's op vocabulary for no isolation benefit.
+
+The clarified rule:
+
+- **Runtime code** (entities, actions, events, jobs, views) — never imports from `sqlalchemy` or `alembic`. Plugins use the kernel's narrow Entity / Action / UnitOfWork surface.
+- **Migration files** (`plugins/<name>/hearth_<name>/migrations/*.py`) — may import from `alembic` and `sqlalchemy`. They follow standard Alembic conventions plus the Hearth-specific `HEARTH_UPGRADE_OPS` / `HEARTH_DOWNGRADE_OPS` classification artifact and optional `data_upgrade(uow)` / `data_downgrade(uow)` hooks.
+
+Enforcement is by convention and code review, not technical isolation. Migration files run in-process and could technically import anything; the project treats this the same as trusting third-party plugin code — violations are caught in review.
+
+See [docs/superpowers/specs/2026-05-18-schema-migrations-design.md](../superpowers/specs/2026-05-18-schema-migrations-design.md) for the full migration system design.
