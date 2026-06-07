@@ -22,7 +22,7 @@
 - `from hearth.testing import BaseHarness` — `BaseHarness(engine)`, `.setup()`, `.run(action, actor=None)`.
 - `from hearth_auth.actions.user_auth import AuthenticateUser` — `AuthenticateUser(email=EmailAddress, password=SecretStr).handle(uow, actor) -> User`; raises `AuthenticationFailed`.
 - `from hearth_auth.actions.api_key import AuthenticateApiKey` — `AuthenticateApiKey(key_string=SecretStr).handle(uow, actor) -> ApiKey`; raises `AuthenticationFailed`.
-- `from hearth_auth import User, AuthenticationFailed` ; `from hearth_auth.testing import seed_admin, grant_permissions`.
+- `from hearth_auth import User, AuthenticationFailed` ; `from hearth_auth.testing import seed_admin, grant_permissions`. **Verify `plugins/auth/hearth_auth/__init__.py` exports these.**
 - `Actor.has_permission(uow, "resource:action") -> bool` — returns `False` for unmatched/malformed strings; **never raises** for unknown permissions. `Anonymous().has_permission` is always `False`; `User.has_permission` queries via the passed uow using only `self.id`/`self.is_active`.
 - `from hearth_commons import EmailAddress` — `EmailAddress(raw="a@b.com")`.
 
@@ -98,6 +98,7 @@ dependencies = [
     "jinja2>=3.1",
     "itsdangerous>=2.2",
     "python-multipart>=0.0.9",
+    "fastapi-csrf-protect>=1.0",
 ]
 
 [project.entry-points."hearth.cli"]
@@ -191,14 +192,45 @@ def make_registry() -> Registry:
         install_path=hearth_auth.__file__ or "<unknown>",
     )
     # Reuse the registry's own class discovery so entities/actions/events match prod.
-    from hearth.kernel.registry import _classes_from_module_tree  # pyright: ignore[reportPrivateUsage]
+    # Use Registry.build() with a test-specific entry point approach, or construct
+    # PluginInfo directly from known classes (avoids private _classes_from_module_tree).
+    from hearth.kernel.registry import PluginInfo, Registry
     from hearth.primitives.action import Action
     from hearth.primitives.entity import Entity
     from hearth.primitives.event import Event
 
-    object.__setattr__(info, "entities", _classes_from_module_tree(Entity, "hearth_auth"))
-    object.__setattr__(info, "actions", _classes_from_module_tree(Action, "hearth_auth"))
-    object.__setattr__(info, "events", _classes_from_module_tree(Event, "hearth_auth"))
+    # Force auth submodules to import so subclasses are registered
+    import hearth_auth.actions  # noqa: F401
+    import hearth_auth.entities  # noqa: F401
+    import hearth_auth.events  # noqa: F401
+
+    # Collect classes from __subclasses__() directly (public API, no private imports)
+    def _collect_subclasses(base: type, package_prefix: str) -> list[type]:
+        found: list[type] = []
+        seen: set[type] = set()
+        stack: list[type] = list(base.__subclasses__())
+        while stack:
+            cls = stack.pop()
+            if cls in seen:
+                continue
+            seen.add(cls)
+            stack.extend(cls.__subclasses__())
+            mod = getattr(cls, "__module__", "") or ""
+            if mod == package_prefix or mod.startswith(package_prefix + "."):
+                if not cls.__dict__.get("__abstract__", False):
+                    found.append(cls)
+        return found
+
+    info = PluginInfo(
+        alias="auth",
+        package="hearth-auth",
+        version="0.0.1",
+        module="hearth_auth",
+        install_path=hearth_auth.__file__ or "<unknown>",
+        entities=_collect_subclasses(Entity, "hearth_auth"),
+        actions=_collect_subclasses(Action, "hearth_auth"),
+        events=_collect_subclasses(Event, "hearth_auth"),
+    )
     return Registry(plugins={"auth": info}, _topological_order=["auth"])
 
 @pytest_asyncio.fixture
@@ -221,9 +253,10 @@ async def web_factory(monkeypatch: pytest.MonkeyPatch):
     """Build ISOLATED web apps (each with its own engine) for tests that need
     custom modules. Never share one StaticPool SQLite engine across two apps —
     both call session.begin() on the same underlying connection and deadlock.
-    Returns an async builder; all engines are disposed at teardown."""
+    Returns an async builder; all engines and TestClients are disposed at teardown."""
     monkeypatch.setenv("HEARTH_WEB_SECRET_KEY", "test-secret-key")
     engines: list[object] = []
+    clients: list[TestClient] = []
 
     async def build(modules: list[object]) -> WebFixture:
         from hearth_web.app import create_app
@@ -236,11 +269,16 @@ async def web_factory(monkeypatch: pytest.MonkeyPatch):
         app = create_app(engine=engine, registry=make_registry(), modules=modules)
         client = TestClient(app)
         client.__enter__()
+        clients.append(client)
         return WebFixture(client=client, harness=harness, admin=admin)
 
-    yield build
-    for eng in engines:
-        await eng.dispose()  # type: ignore[union-attr]
+    try:
+        yield build
+    finally:
+        for c in clients:
+            c.__exit__(None, None, None)
+        for eng in engines:
+            await eng.dispose()  # type: ignore[union-attr]
 ```
 
 - [ ] **Step 2: Ensure `pytest-asyncio` is configured as `auto`**
@@ -393,7 +431,7 @@ class NavItem:
     permission: str | None = None
     section: str | None = None
     order: int = 0
-    icon: str | None = None
+    icon: str | None = None  # Reserved for future UI; not rendered in v1 templates
 
 @dataclass(frozen=True)
 class SlotContribution:
@@ -711,6 +749,15 @@ def build_jinja_env(modules: list[WebModule], override_dir: str | None) -> Envir
         enable_async=True,
         undefined=__import__("jinja2").StrictUndefined,
     )
+    # Register groupby filter for nav template
+    from itertools import groupby
+    from operator import attrgetter
+
+    @pass_context
+    def groupby_filter(ctx, seq, attr):
+        return groupby(sorted(seq, key=attrgetter(attr)), attrgetter(attr))
+
+    env.filters["groupby"] = groupby_filter
     return env
 ```
 
@@ -925,11 +972,12 @@ async def get_check(request: Request, uow=Depends(request_uow),
     return check
 ```
 
-In `app.py`, install the session middleware (needs `request.session`):
+In `app.py`, install the session middleware (needs `request.session`) and CSRF:
 
 ```python
     from starlette.middleware.sessions import SessionMiddleware
     app.add_middleware(SessionMiddleware, secret_key=secret, same_site="lax", https_only=False)
+    # CSRF middleware is initialized via sessions.py startup event (uses app.state.secret)
 ```
 
 - [ ] **Step 4: Run — expect pass**
@@ -951,30 +999,53 @@ Expected: PASS.
 
 ```python
 def test_login_success_sets_session(web):
+    # First GET /login to get CSRF token
+    get_resp = web.client.get("/login")
+    csrf_token = get_resp.cookies.get("csrf_token") or get_resp.text.split('name="csrf_token" value="')[1].split('"')[0]
     resp = web.client.post("/login",
-                           data={"email": "admin@x.com", "password": "adminpass"},
+                           data={"email": "admin@x.com", "password": "adminpass", "csrf_token": csrf_token},
                            follow_redirects=False)
     assert resp.status_code == 303
     assert "session" in resp.cookies or resp.headers.get("set-cookie")
 
 def test_login_failure_indistinguishable(web):
+    get_resp = web.client.get("/login")
+    csrf_token = get_resp.cookies.get("csrf_token") or get_resp.text.split('name="csrf_token" value="')[1].split('"')[0]
     resp = web.client.post("/login",
-                           data={"email": "admin@x.com", "password": "wrong"})
+                           data={"email": "admin@x.com", "password": "wrong", "csrf_token": csrf_token})
     assert resp.status_code == 401
     assert "invalid credentials" in resp.text.lower()
 
 def test_login_next_open_redirect_rejected(web):
+    get_resp = web.client.get("/login")
+    csrf_token = get_resp.cookies.get("csrf_token") or get_resp.text.split('name="csrf_token" value="')[1].split('"')[0]
     resp = web.client.post("/login",
                            data={"email": "admin@x.com", "password": "adminpass",
-                                 "next": "https://evil.example/x"},
+                                 "next": "https://evil.example/x", "csrf_token": csrf_token},
                            follow_redirects=False)
     assert resp.headers["location"] == "/admin"
 
 def test_logout_clears_session(web):
-    web.client.post("/login", data={"email": "admin@x.com", "password": "adminpass"})
-    resp = web.client.post("/logout", follow_redirects=False)
+    get_resp = web.client.get("/login")
+    csrf_token = get_resp.cookies.get("csrf_token") or get_resp.text.split('name="csrf_token" value="')[1].split('"')[0]
+    web.client.post("/login", data={"email": "admin@x.com", "password": "adminpass", "csrf_token": csrf_token})
+    # Need fresh CSRF for logout
+    get_resp2 = web.client.get("/login")
+    csrf_token2 = get_resp2.cookies.get("csrf_token") or get_resp2.text.split('name="csrf_token" value="')[1].split('"')[0]
+    resp = web.client.post("/logout", data={"csrf_token": csrf_token2}, follow_redirects=False)
     assert resp.status_code == 303
     assert resp.headers["location"] == "/login"
+
+def test_login_csrf_rejected(web):
+    """POST /login without CSRF token returns 403."""
+    resp = web.client.post("/login", data={"email": "admin@x.com", "password": "adminpass"})
+    assert resp.status_code == 403
+
+def test_logout_csrf_rejected(web):
+    """POST /logout without CSRF token returns 403."""
+    web.client.post("/login", data={"email": "admin@x.com", "password": "adminpass"})
+    resp = web.client.post("/logout")
+    assert resp.status_code == 403
 ```
 
 (`seed_admin` defaults to `admin@x.com` / `adminpass`.) After a successful login the default redirect target is `/admin`.
@@ -989,7 +1060,7 @@ Expected: FAIL (no `/login` route).
 `sessions.py`:
 
 ```python
-"""Login/logout routes and safe-redirect validation."""
+"""Login/logout routes with CSRF protection."""
 
 from __future__ import annotations
 
@@ -997,7 +1068,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from pydantic import SecretStr
+from fastapi_csrf_protect import CsrfProtect
+from pydantic import BaseModel, SecretStr
 
 from hearth import Anonymous
 from hearth_auth import AuthenticationFailed
@@ -1006,6 +1078,16 @@ from hearth_commons import EmailAddress
 from hearth_web.security import request_uow
 
 session_router = APIRouter()
+
+class CsrfSettings(BaseModel):
+    secret_key: str
+    cookie_samesite: str = "lax"
+    cookie_secure: bool = False
+
+@session_router.on_event("startup")
+async def init_csrf():
+    secret = session_router.app.state.secret
+    CsrfProtect.load_config(lambda: CsrfSettings(secret_key=secret))
 
 def validate_next(raw: str | None) -> str:
     """Only site-local paths are honored (open-redirect defense)."""
@@ -1016,13 +1098,19 @@ def validate_next(raw: str | None) -> str:
 @session_router.get("/login")
 async def login_form(
     request: Request,
-    next_url: Annotated[str, Query(alias="next")] = "/admin",  # alias keeps the URL param "next"
+    next_url: Annotated[str, Query(alias="next")] = "/admin",
+    csrf_protect: CsrfProtect = Depends(),
 ) -> HTMLResponse:
     env = request.app.state.jinja_env
-    html = await env.get_template("login.html").render_async(
-        request=request, brand=request.app.state.brand, next=validate_next(next_url), error=None
+    csrf_token, _ = csrf_protect.generate_csrf_tokens()
+    response = HTMLResponse(
+        await env.get_template("login.html").render_async(
+            request=request, brand=request.app.state.brand, next=validate_next(next_url), error=None,
+            csrf_token=csrf_token,
+        )
     )
-    return HTMLResponse(html)
+    csrf_protect.set_csrf_cookie(csrf_token, response)
+    return response
 
 @session_router.post("/login")
 async def login_submit(
@@ -1031,7 +1119,9 @@ async def login_submit(
     password: Annotated[str, Form()],
     next_url: Annotated[str, Form(alias="next")] = "/admin",
     uow=Depends(request_uow),
+    csrf_protect: CsrfProtect = Depends(),
 ) -> HTMLResponse | RedirectResponse:
+    csrf_protect.validate_csrf(request)
     target = validate_next(next_url)
     try:
         user = await AuthenticateUser(
@@ -1039,18 +1129,29 @@ async def login_submit(
         ).handle(uow, Anonymous())
     except AuthenticationFailed:
         env = request.app.state.jinja_env
+        csrf_token, _ = csrf_protect.generate_csrf_tokens()
         html = await env.get_template("login.html").render_async(
             request=request, brand=request.app.state.brand, next=target,
-            error="invalid credentials",
+            error="invalid credentials", email=email, csrf_token=csrf_token,
         )
-        return HTMLResponse(html, status_code=401)
+        response = HTMLResponse(html, status_code=401)
+        csrf_protect.set_csrf_cookie(csrf_token, response)
+        return response
     request.session["user_id"] = str(user.id)
-    return RedirectResponse(target, status_code=303)
+    response = RedirectResponse(target, status_code=303)
+    csrf_protect.unset_csrf_cookie(response)
+    return response
 
 @session_router.post("/logout")
-async def logout(request: Request) -> RedirectResponse:
+async def logout(
+    request: Request,
+    csrf_protect: CsrfProtect = Depends(),
+) -> RedirectResponse:
+    csrf_protect.validate_csrf(request)
     request.session.clear()
-    return RedirectResponse("/login", status_code=303)
+    response = RedirectResponse("/login", status_code=303)
+    csrf_protect.unset_csrf_cookie(response)
+    return response
 ```
 
 `templates/base.html` (minimal shell; expanded in Milestone 6):
@@ -1080,7 +1181,8 @@ async def logout(request: Request) -> RedirectResponse:
 <form method="post" action="/login">
   {% if error %}<p class="error">{{ error }}</p>{% endif %}
   <input type="hidden" name="next" value="{{ next }}">
-  <label>Email <input name="email" type="email" required></label>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <label>Email <input name="email" type="email" required value="{{ email or '' }}"></label>
   <label>Password <input name="password" type="password" required></label>
   <button type="submit">Sign in</button>
 </form>
@@ -1149,6 +1251,167 @@ Expected: FAIL initially if `actor_kind` differs — fix the assertion to the re
 
 Run: `rtk proxy uv run pytest plugins/web/tests/test_web_auth.py -v`
 Expected: PASS.
+
+---
+
+### Task 3.5: Production auth scenarios (API key permissions, session isolation, logout)
+
+**Files:**
+- Test: `plugins/web/tests/test_web_auth.py`
+
+- [ ] **Step 1: Write the failing tests**
+
+```python
+import pytest
+from hearth_auth.actions import CreateApiKey, CreatePermission, AssignPermissionToRole, CreateRole, AssignRoleToUser
+from hearth_auth.values import PermissionName
+from hearth_commons import EmailAddress
+from pydantic import SecretStr
+
+# --- API Key with permissions ---
+
+@pytest.mark.asyncio
+async def test_api_key_with_permissions_accesses_gated_route(web_factory):
+    """API key granted specific permission can access gated route."""
+    from fastapi import APIRouter, Depends
+    from hearth_web.extensions import WebModule
+    from hearth_web.security import requires_permission
+
+    r = APIRouter()
+    @r.get("/widgets")
+    async def widgets(_: None = Depends(requires_permission("widgets:read"))):
+        return {"widgets": ["a", "b"]}
+    mod = WebModule(name="diag", router=r)
+
+    fx = await web_factory([mod])
+    # Create permission and API key with it
+    perm = await fx.harness.run(CreatePermission(name=PermissionName(resource="widgets", action="read")))
+    role = await fx.harness.run(CreateRole(name="widget-reader"))
+    await fx.harness.run(AssignPermissionToRole(role_id=role.id, permission_id=perm.id))
+    api_key, plaintext = await fx.harness.run(CreateApiKey(name="ci", permissions=[PermissionName(resource="widgets", action="read")]))
+
+    resp = fx.client.get("/diag/widgets", headers={"Authorization": f"Bearer {plaintext}"})
+    assert resp.status_code == 200
+    assert resp.json() == {"widgets": ["a", "b"]}
+
+@pytest.mark.asyncio
+async def test_api_key_without_permission_denied(web_factory):
+    """API key without permission gets 403 on gated route."""
+    from fastapi import APIRouter, Depends
+    from hearth_web.extensions import WebModule
+    from hearth_web.security import requires_permission
+
+    r = APIRouter()
+    @r.get("/widgets")
+    async def widgets(_: None = Depends(requires_permission("widgets:read"))):
+        return {"widgets": []}
+    mod = WebModule(name="diag", router=r)
+
+    fx = await web_factory([mod])
+    api_key, plaintext = await fx.harness.run(CreateApiKey(name="ci", permissions=[]))
+
+    resp = fx.client.get("/diag/widgets", headers={"Authorization": f"Bearer {plaintext}"})
+    assert resp.status_code == 403
+
+# --- Session isolation ---
+
+@pytest.mark.asyncio
+async def test_logout_clears_session_completely(web_factory):
+    """After logout, no residual auth; subsequent requests are anonymous."""
+    from hearth_web.extensions import WebModule
+    from hearth_web.security import current_actor
+
+    r = APIRouter()
+    @r.get("/whoami")
+    async def whoami(actor=Depends(current_actor)):
+        return {"kind": actor.actor_kind}
+    mod = WebModule(name="diag", router=r)
+
+    fx = await web_factory([mod])
+    get_resp = fx.client.get("/login")
+    csrf_token = get_resp.cookies.get("csrf_token") or get_resp.text.split('name="csrf_token" value="')[1].split('"')[0]
+    fx.client.post("/login", data={"email": "admin@x.com", "password": "adminpass", "csrf_token": csrf_token})
+
+    # Verify authenticated
+    resp = fx.client.get("/diag/whoami")
+    assert resp.json()["kind"] == "user"
+
+    # Logout
+    get_resp2 = fx.client.get("/login")
+    csrf_token2 = get_resp2.cookies.get("csrf_token") or get_resp2.text.split('name="csrf_token" value="')[1].split('"')[0]
+    fx.client.post("/logout", data={"csrf_token": csrf_token2})
+
+    # Verify anonymous
+    resp = fx.client.get("/diag/whoami")
+    assert resp.json()["kind"] == "anonymous"
+
+    # Session cookie should be cleared
+    assert "session" not in fx.client.cookies
+
+@pytest.mark.asyncio
+async def test_concurrent_requests_isolated_uow(web_factory):
+    """Two concurrent requests use separate UoWs; mutations don't leak."""
+    from fastapi import APIRouter, Depends
+    from hearth_web.extensions import WebModule
+    from hearth_web.security import request_uow
+    from hearth import EntityId
+    from hearth_auth.entities.user import User
+    from hearth_commons import EmailAddress
+    from pydantic import SecretStr
+
+    r = APIRouter()
+    @r.post("/create-user")
+    async def create_user(uow=Depends(request_uow)):
+        user = User(email=EmailAddress(raw=f"user-{EntityId.new()}@x.com"), password=SecretStr("pw"))
+        await uow.save(user)
+        return {"id": str(user.id)}
+    @r.get("/count")
+    async def count(uow=Depends(request_uow)):
+        from hearth.kernel.query import Query
+        return {"count": await uow.query(User).count()}
+    mod = WebModule(name="diag", router=r)
+
+    fx = await web_factory([mod])
+
+    # Sequential requests should be isolated
+    r1 = fx.client.post("/diag/create-user")
+    r2 = fx.client.post("/diag/create-user")
+    assert r1.status_code == 200
+    assert r2.status_code == 200
+    assert r1.json()["id"] != r2.json()["id"]
+
+    cnt = fx.client.get("/diag/count")
+    assert cnt.json()["count"] == 2
+
+# --- Expired/Revoked API Key ---
+
+@pytest.mark.asyncio
+async def test_revoked_api_key_rejected(web_factory):
+    from hearth_auth.actions import RevokeApiKey
+    from fastapi import APIRouter, Depends
+    from hearth_web.extensions import WebModule
+    from hearth_web.security import requires_permission
+
+    r = APIRouter()
+    @r.get("/secret")
+    async def secret(_: None = Depends(requires_permission("x:y"))):
+        return {"ok": True}
+    mod = WebModule(name="diag", router=r)
+
+    fx = await web_factory([mod])
+    api_key, plaintext = await fx.harness.run(CreateApiKey(name="ci", permissions=[PermissionName(resource="x", action="y")]))
+
+    # First request works
+    resp = fx.client.get("/diag/secret", headers={"Authorization": f"Bearer {plaintext}"})
+    assert resp.status_code == 200
+
+    # Revoke
+    await fx.harness.run(RevokeApiKey(api_key_id=api_key.id))
+
+    # Subsequent request denied
+    resp = fx.client.get("/diag/secret", headers={"Authorization": f"Bearer {plaintext}"})
+    assert resp.status_code == 401  # AuthenticateApiKey raises AuthenticationFailed -> Anonymous -> 401
+```
 
 ---
 
@@ -1458,24 +1721,35 @@ def build_slot_registry(modules: list[WebModule]) -> dict[str, list[SlotContribu
     return reg
 
 def make_render_slot(registry, uow, actor: Actor, check, env: Environment):
+    _RENDER_DEPTH: dict[str, int] = {}
+    MAX_DEPTH = 10
+
     async def render_slot(name: str, **ctx) -> Markup:
-        parts: list[str] = []
-        for contrib in registry.get(name, []):
-            if contrib.permission is not None and not await check(contrib.permission):
-                continue
-            try:
-                data = await contrib.provider(uow, actor, **ctx) if contrib.provider else {}
-                fragment_ctx = {
-                    **ctx, **data,
-                    "check": check, "current_actor": actor, "render_slot": render_slot,
-                }
-                html = await env.get_template(contrib.template).render_async(fragment_ctx)
-            except Exception as exc:  # noqa: BLE001 — isolation is the contract
-                logger.warning("slot %r contribution %r failed: %s: %s",
-                               name, contrib.template, type(exc).__name__, exc)
-                continue
-            parts.append(html)
-        return Markup("".join(parts))
+        depth = _RENDER_DEPTH.get(name, 0)
+        if depth >= MAX_DEPTH:
+            logger.warning("slot %r exceeded max render depth (%d); skipping", name, MAX_DEPTH)
+            return Markup("")
+        _RENDER_DEPTH[name] = depth + 1
+        try:
+            parts: list[str] = []
+            for contrib in registry.get(name, []):
+                if contrib.permission is not None and not await check(contrib.permission):
+                    continue
+                try:
+                    data = await contrib.provider(uow, actor, **ctx) if contrib.provider else {}
+                    fragment_ctx = {
+                        **ctx, **data,
+                        "check": check, "current_actor": actor, "render_slot": render_slot,
+                    }
+                    html = await env.get_template(contrib.template).render_async(fragment_ctx)
+                except Exception as exc:  # noqa: BLE001 — isolation is the contract
+                    logger.warning("slot %r contribution %r failed: %s: %s",
+                                   name, contrib.template, type(exc).__name__, exc)
+                    continue
+                parts.append(html)
+            return Markup("".join(parts))
+        finally:
+            _RENDER_DEPTH[name] = depth
 
     return render_slot
 ```
@@ -1522,9 +1796,19 @@ async def test_page_renders_slot_through_request(web, tmp_path, monkeypatch):
     monkeypatch.setenv("HEARTH_WEB_SECRET_KEY", "test-secret-key")
     from hearth_web.app import create_app
     from conftest import make_registry
-    app = create_app(engine=web.harness._engine, registry=make_registry(), modules=[mod])  # pyright: ignore[reportPrivateUsage]
+    from hearth.kernel._engine import make_async_engine  # pyright: ignore[reportPrivateUsage]
+    from hearth.testing import BaseHarness
+    from hearth_auth.testing import seed_admin
+
+    # Build isolated app with its own engine (avoids StaticPool sharing issues)
+    engine = make_async_engine("sqlite:///:memory:")
+    harness = BaseHarness(engine)
+    await harness.setup()
+    await seed_admin(harness)
+    app = create_app(engine=engine, registry=make_registry(), modules=[mod])
     with TestClient(app) as c:
         assert c.get("/diag/host").text == "HOST[FRAG]"
+    await engine.dispose()
 ```
 
 - [ ] **Step 2: Run — expect failure**
@@ -1622,6 +1906,87 @@ async def test_slot_contribution_permission_gated(web, tmp_path):
         from hearth_web.security import make_check
         rs = make_render_slot(reg, uow, Anonymous(), make_check(uow, Anonymous()), env)
         assert await rs("s") == ""  # anonymous lacks x:write
+
+# --- HTMX partial rendering ---
+
+@pytest.mark.asyncio
+async def test_htmx_slot_partial_render(web, tmp_path):
+    """Slot contributions work via HTMX (HX-Request header)."""
+    from fastapi import APIRouter, Depends, Request
+    from hearth_web.extensions import SlotContribution, WebModule
+    from hearth_web.rendering import page_context, render
+
+    tdir = tmp_path / "templates"; tdir.mkdir()
+    (tdir / "widget.html").write_text("<div class='widget'>WIDGET: {{ value }}</div>")
+
+    r = APIRouter()
+    @r.get("/htmx-widget")
+    async def htmx_widget(request: Request, _: None = Depends(page_context)):
+        return await render(request, "diag/widget.html", value="htmx-value")
+
+    mod = WebModule(
+        name="diag", router=r, templates_dir="templates", package_dir=str(tmp_path),
+        contributions=[SlotContribution(slot="admin.dashboard.widgets", template="diag/widget.html")],
+    )
+
+    monkeypatch.setenv("HEARTH_WEB_SECRET_KEY", "test-secret")
+    from hearth_web.app import create_app
+    from conftest import make_registry
+    from hearth.kernel._engine import make_async_engine  # pyright: ignore[reportPrivateUsage]
+    from hearth.testing import BaseHarness
+    from hearth_auth.testing import seed_admin
+
+    engine = make_async_engine("sqlite:///:memory:")
+    harness = BaseHarness(engine)
+    await harness.setup()
+    await seed_admin(harness)
+    app = create_app(engine=engine, registry=make_registry(), modules=[mod])
+
+    from starlette.testclient import TestClient
+    with TestClient(app) as client:
+        get_resp = client.get("/login")
+        csrf_token = get_resp.cookies.get("csrf_token") or get_resp.text.split('name="csrf_token" value="')[1].split('"')[0]
+        client.post("/login", data={"email": "admin@x.com", "password": "adminpass", "csrf_token": csrf_token})
+
+        # HTMX request gets partial
+        resp = client.get("/diag/htmx-widget", headers={"HX-Request": "true"})
+        assert resp.status_code == 200
+        assert "WIDGET: htmx-value" in resp.text
+        assert "<div class='widget'>" in resp.text
+        # Full page not rendered (no base.html wrapper)
+        assert "<html" not in resp.text.lower()
+
+    await engine.dispose()
+
+# --- Theme toggle persistence ---
+
+def test_theme_toggle_localstorage_roundtrip(web):
+    """Theme preference persists via localStorage (client-side, verified via template)."""
+    from hearth.kernel._engine import make_async_engine  # pyright: ignore[reportPrivateUsage]
+    from hearth.testing import BaseHarness
+    from hearth_auth.testing import seed_admin
+    from conftest import make_registry
+    from hearth_web.app import create_app
+    from starlette.testclient import TestClient
+
+    engine = make_async_engine("sqlite:///:memory:")
+    harness = BaseHarness(engine)
+    await harness.setup()
+    await seed_admin(harness)
+    app = create_app(engine=engine, registry=make_registry(), modules=[])
+
+    with TestClient(app) as client:
+        get_resp = client.get("/login")
+        csrf_token = get_resp.cookies.get("csrf_token") or get_resp.text.split('name="csrf_token" value="')[1].split('"')[0]
+        client.post("/login", data={"email": "admin@x.com", "password": "adminpass", "csrf_token": csrf_token})
+
+        # Dashboard includes theme-toggle.js and data-theme attribute
+        resp = client.get("/admin")
+        assert 'data-theme="light"' in resp.text or 'data-theme="dark"' in resp.text
+        assert "toggleTheme" in resp.text
+        assert "localStorage.setItem('theme'" in resp.text
+
+    await engine.dispose()
 ```
 
 - [ ] **Step 2: Run — expect pass** (implementation already supports these)
@@ -1763,7 +2128,68 @@ def test_schema_page_renders_graph(web):
 def test_admin_requires_auth(web):
     r = web.client.get("/admin", headers={"accept": "text/html"}, follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"].startswith("/login")
-```
+
+def test_branding_env_vars_rendered(web, monkeypatch):
+    """HEARTH_WEB_BRAND_NAME, PRIMARY_COLOR, LOGO_URL appear in base template."""
+    from hearth.kernel._engine import make_async_engine  # pyright: ignore[reportPrivateUsage]
+    from hearth.testing import BaseHarness
+    from hearth_auth.testing import seed_admin
+    from conftest import make_registry
+    from hearth_web.app import create_app
+    from starlette.testclient import TestClient
+
+    monkeypatch.setenv("HEARTH_WEB_SECRET_KEY", "test-secret")
+    monkeypatch.setenv("HEARTH_WEB_BRAND_NAME", "MyStore")
+    monkeypatch.setenv("HEARTH_WEB_PRIMARY_COLOR", "#ff6b35")
+    monkeypatch.setenv("HEARTH_WEB_LOGO_URL", "/static/logo.svg")
+
+    engine = make_async_engine("sqlite:///:memory:")
+    harness = BaseHarness(engine)
+    await harness.setup()
+    await seed_admin(harness)
+    app = create_app(engine=engine, registry=make_registry(), modules=[])
+    with TestClient(app) as client:
+        # First login
+        get_resp = client.get("/login")
+        csrf_token = get_resp.cookies.get("csrf_token") or get_resp.text.split('name="csrf_token" value="')[1].split('"')[0]
+        client.post("/login", data={"email": "admin@x.com", "password": "adminpass", "csrf_token": csrf_token})
+        # Check dashboard has branding
+        r = client.get("/admin")
+        assert "MyStore" in r.text
+        assert "#ff6b35" in r.text
+        assert "/static/logo.svg" in r.text
+    await engine.dispose()
+
+def test_template_override_dir(web, tmp_path, monkeypatch):
+    """HEARTH_WEB_TEMPLATE_DIR overrides built-in templates."""
+    from hearth.kernel._engine import make_async_engine  # pyright: ignore[reportPrivateUsage]
+    from hearth.testing import BaseHarness
+    from hearth_auth.testing import seed_admin
+    from conftest import make_registry
+    from hearth_web.app import create_app
+    from starlette.testclient import TestClient
+
+    # Create override template
+    override = tmp_path / "templates"
+    override.mkdir()
+    (override / "admin" / "dashboard.html").mkdir(parents=True)
+    (override / "admin" / "dashboard.html").write_text("OVERRIDE WORKS")
+
+    monkeypatch.setenv("HEARTH_WEB_SECRET_KEY", "test-secret")
+    monkeypatch.setenv("HEARTH_WEB_TEMPLATE_DIR", str(override))
+
+    engine = make_async_engine("sqlite:///:memory:")
+    harness = BaseHarness(engine)
+    await harness.setup()
+    await seed_admin(harness)
+    app = create_app(engine=engine, registry=make_registry(), modules=[])
+    with TestClient(app) as client:
+        get_resp = client.get("/login")
+        csrf_token = get_resp.cookies.get("csrf_token") or get_resp.text.split('name="csrf_token" value="')[1].split('"')[0]
+        client.post("/login", data={"email": "admin@x.com", "password": "adminpass", "csrf_token": csrf_token})
+        r = client.get("/admin")
+        assert "OVERRIDE WORKS" in r.text
+    await engine.dispose()
 
 - [ ] **Step 2: Run — expect failure**
 
@@ -2026,9 +2452,9 @@ Run (downloads pinned versions into the vendor dir):
 mkdir -p plugins/web/hearth_web/static/vendor
 rtk proxy curl -sL https://unpkg.com/htmx.org@2.0.3/dist/htmx.min.js -o plugins/web/hearth_web/static/vendor/htmx.min.js
 rtk proxy curl -sL https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js -o plugins/web/hearth_web/static/vendor/alpine.min.js
-rtk proxy curl -sL https://unpkg.com/mermaid@11/dist/mermaid.esm.min.mjs -o plugins/web/hearth_web/static/vendor/mermaid.min.js
+rtk proxy curl -sL https://unpkg.com/mermaid@11/dist/mermaid.min.js -o plugins/web/hearth_web/static/vendor/mermaid.min.js
 ```
-Expected: three non-empty files.
+Expected: three non-empty files. (Uses UMD build for direct `<script>` import; ESM `.mjs` would require `<script type="module">`.)
 
 - [ ] **Step 2: Write `base.css`** with CSS custom properties and a dark theme block. Keep it real but compact:
 
@@ -2238,4 +2664,4 @@ Expected: clean (fix any findings; match the repo's strictness).
 
 **Known deferral carried from spec:** generic write surface, runtime-editable config entity, OAuth/MFA, deeper nav nesting — out of scope; foundation is built write-ready (Task 5.2 note).
 
-**Implementer caveats flagged inline:** (1) request uow audit-actor is `Anonymous` in v1 (revisit with write surface); (2) `WebModule.package_dir` should be set explicitly by templated/static plugins — keep the field, prefer explicit over the fragile auto-derivation; (3) some tests sketch a fake-`Request`/diag-module approach — prefer the async `web` fixture pattern from conftest where possible.
+**Implementer caveats flagged inline:** (1) request uow audit-actor is `Anonymous` in v1 (revisit with write surface); (2) `WebModule.package_dir` should be set explicitly by templated/static plugins — keep the field, prefer explicit over the fragile auto-derivation; (3) some tests sketch a fake-`Request`/diag-module approach — prefer the async `web` fixture pattern from conftest where possible; (4) `groupby` filter added to `build_jinja_env` for nav template; (5) Mermaid.js uses UMD build for direct script import; (6) `render_slot` has recursion depth guard (max 10); (7) `web_factory` fixture now properly cleans up TestClient; (8) test registry builder uses public `__subclasses__()` instead of private `_classes_from_module_tree`; (9) slot test uses isolated engine instead of shared harness engine; (10) CSRF protection implemented on login/logout via `fastapi-csrf-protect`; (11) verify `hearth_auth` exports `User`, `AuthenticationFailed`.
