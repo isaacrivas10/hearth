@@ -1,0 +1,68 @@
+{% extends "admin/base.html" %} {% block title %}{{ alias }} Plugin - {{
+brand.name }}{% endblock %} {% block page_content %}
+<header class="page-header">
+    <h1>{{ alias }} Plugin</h1>
+    <a href="/admin/plugins" class="back-link">← Back to Plugins</a>
+</header>
+
+{% if plugin %}
+<div class="plugin-detail">
+    <dl class="detail-list">
+        <dt>Alias</dt>
+        <dd>{{ plugin.alias }}</dd>
+        <dt>Package</dt>
+        <dd>{{ plugin.package }}</dd>
+        <dt>Version</dt>
+        <dd>{{ plugin.version }}</dd>
+        <dt>Module</dt>
+        <dd>{{ plugin.module }}</dd>
+        <dt>Install Path</dt>
+        <dd>{{ plugin.install_path }}</dd>
+    </dl>
+
+    <section class="entities-section">
+        <h2>Entities ({{ plugin.entities|length }})</h2>
+        {% if plugin.entities %}
+        <ul class="entity-list">
+            {% for entity in plugin.entities %}
+            <li>
+                <a href="/admin/entities/{{ alias }}/{{ entity.__name__ }}"
+                    >{{ entity.__name__ }}</a
+                >
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p>No entities registered.</p>
+        {% endif %}
+    </section>
+
+    <section class="actions-section">
+        <h2>Actions ({{ plugin.actions|length }})</h2>
+        {% if plugin.actions %}
+        <ul class="action-list">
+            {% for action in plugin.actions %}
+            <li>{{ action.__name__ }}</li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p>No actions registered.</p>
+        {% endif %}
+    </section>
+
+    <section class="events-section">
+        <h2>Events ({{ plugin.events|length }})</h2>
+        {% if plugin.events %}
+        <ul class="event-list">
+            {% for event in plugin.events %}
+            <li>{{ event.__name__ }}</li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p>No events registered.</p>
+        {% endif %}
+    </section>
+</div>
+{% else %}
+<p class="error">Plugin "{{ alias }}" not found.</p>
+{% endif %} {% endblock %}

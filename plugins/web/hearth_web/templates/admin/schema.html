@@ -1,0 +1,15 @@
+{% extends "admin/base.html" %} {% block title %}Schema - {{ brand.name }}{%
+endblock %} {% block page_content %}
+<header class="page-header">
+    <h1>Schema Diagram</h1>
+</header>
+
+<div class="schema-container">
+    <pre class="mermaid">{{ mermaid }}</pre>
+</div>
+
+<script src="/static/vendor/mermaid.min.js" defer></script>
+<script>
+    mermaid.initialize({ startOnLoad: true, theme: "default" });
+</script>
+{% endblock %}

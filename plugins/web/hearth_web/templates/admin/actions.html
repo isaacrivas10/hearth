@@ -1,0 +1,18 @@
+{% extends "admin/base.html" %} {% block title %}Actions - {{ brand.name }}{%
+endblock %} {% block page_content %}
+<header class="page-header">
+    <h1>Actions</h1>
+</header>
+
+{% for plugin in plugins %} {% if plugin.actions %}
+<section class="plugin-actions">
+    <h2>{{ plugin.alias }} ({{ plugin.actions|length }})</h2>
+    <ul class="action-list">
+        {% for action in plugin.actions %}
+        <li>{{ action.__name__ }}</li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %} {% endfor %} {% if not plugins|selectattr('actions')|list %}
+<p>No actions registered.</p>
+{% endif %} {% endblock %}

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>{% block title %}{{ brand.name }}{% endblock %}</title>
+        <link rel="stylesheet" href="/static/base.css" />
+        {% if brand.primary_color %}
+        <style>
+            :root {
+                --color-accent: {{ brand.primary_color }};
+            }
+        </style>
+        {% endif %}
+        <script>
+            (function () {
+                var t = localStorage.getItem("theme");
+                if (t) document.documentElement.dataset.theme = t;
+            })();
+        </script>
+    </head>
+
+    <body>
+        <header>
+            {% if brand.logo_url %}<img
+                src="{{ brand.logo_url }}"
+                alt=""
+                height="28"
+            />{% endif %}
+            <strong>{{ brand.name }}</strong>
+            <button type="button" onclick="toggleTheme()">◐</button>
+            {% if current_actor is defined and current_actor.actor_kind !=
+            'anonymous' %}
+            <form method="post" action="/logout" style="display: inline">
+                <button>Sign out</button>
+            </form>
+            {% endif %}
+        </header>
+        <main>{% block content %}{% endblock %}</main>
+        <script src="/static/theme-toggle.js"></script>
+        <script src="/static/vendor/htmx.min.js" defer></script>
+        <script src="/static/vendor/alpine.min.js" defer></script>
+    </body>
+</html>

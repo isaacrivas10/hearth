@@ -1,0 +1,71 @@
+:root {
+  --color-bg: #fff;
+  --color-fg: #1a1a1a;
+  --color-muted: #666;
+  --color-accent: #2563eb;
+  --color-border: #e5e7eb;
+  --space: 1rem;
+  --radius: 8px;
+  font-family: system-ui, sans-serif;
+}
+
+:root[data-theme="dark"] {
+  --color-bg: #0f1115;
+  --color-fg: #e6e6e6;
+  --color-muted: #9aa0aa;
+  --color-border: #262b33;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-fg);
+}
+
+a {
+  color: var(--color-accent);
+}
+
+main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: var(--space);
+}
+
+nav .nav-section h3 {
+  color: var(--color-muted);
+  font-size: .75rem;
+  text-transform: uppercase;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+td, th {
+  border: 1px solid var(--color-border);
+  padding: .4rem .6rem;
+  text-align: left;
+}
+
+.error {
+  color: #dc2626;
+}
+
+.counts {
+  display: flex;
+  gap: var(--space);
+  list-style: none;
+  padding: 0;
+}
+
+.widgets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space);
+}

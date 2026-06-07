@@ -1,0 +1,30 @@
+{% extends "admin/base.html" %} {% block title %}Admin Dashboard - {{ brand.name
+}}{% endblock %} {% block page_content %}
+<header class="page-header">
+    <h1>Dashboard</h1>
+</header>
+
+<div class="dashboard-grid">
+    <div class="stat-card">
+        <span class="stat-value">{{ counts.plugins }}</span>
+        <span class="stat-label">Plugins</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-value">{{ counts.entities }}</span>
+        <span class="stat-label">Entities</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-value">{{ counts.actions }}</span>
+        <span class="stat-label">Actions</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-value">{{ counts.events }}</span>
+        <span class="stat-label">Events</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-value">{{ db.outbox_depth }}</span>
+        <span class="stat-label">Outbox rows</span>
+    </div>
+</div>
+
+{{ render_slot("admin.dashboard.widgets") }} {% endblock %}

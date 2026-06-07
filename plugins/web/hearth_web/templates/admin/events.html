@@ -1,0 +1,18 @@
+{% extends "admin/base.html" %} {% block title %}Events - {{ brand.name }}{%
+endblock %} {% block page_content %}
+<header class="page-header">
+    <h1>Events</h1>
+</header>
+
+{% for plugin in plugins %} {% if plugin.events %}
+<section class="plugin-events">
+    <h2>{{ plugin.alias }} ({{ plugin.events|length }})</h2>
+    <ul class="event-list">
+        {% for event in plugin.events %}
+        <li>{{ event.__name__ }}</li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %} {% endfor %} {% if not plugins|selectattr('events')|list %}
+<p>No events registered.</p>
+{% endif %} {% endblock %}

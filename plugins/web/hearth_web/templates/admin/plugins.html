@@ -1,0 +1,35 @@
+{% extends "admin/base.html" %} {% block title %}Plugins - {{ brand.name }}{%
+endblock %} {% block page_content %}
+<header class="page-header">
+    <h1>Plugins</h1>
+</header>
+
+<table class="admin-table">
+    <thead>
+        <tr>
+            <th>Alias</th>
+            <th>Package</th>
+            <th>Version</th>
+            <th>Entities</th>
+            <th>Actions</th>
+            <th>Events</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for plugin in plugins %}
+        <tr>
+            <td>
+                <a href="/admin/plugins/{{ plugin.alias }}"
+                    >{{ plugin.alias }}</a
+                >
+            </td>
+            <td>{{ plugin.package }}</td>
+            <td>{{ plugin.version }}</td>
+            <td>{{ plugin.entities|length }}</td>
+            <td>{{ plugin.actions|length }}</td>
+            <td>{{ plugin.events|length }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

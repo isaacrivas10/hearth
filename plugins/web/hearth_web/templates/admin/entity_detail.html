@@ -1,0 +1,39 @@
+{% extends "admin/base.html" %} {% block title %}{{ alias }} / {{ name }} - {{
+brand.name }}{% endblock %} {% block page_content %}
+<header class="page-header">
+    <h1>{{ name }}</h1>
+    <a href="/admin/entities" class="back-link">← Back to Entities</a>
+</header>
+
+{% if fields %}
+<table class="admin-table">
+    <thead>
+        <tr>
+            <th>Field</th>
+            <th>Type</th>
+            <th>Nullable</th>
+            <th>References</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for field in fields %}
+        <tr>
+            <td>{{ field.name }}</td>
+            <td>{{ field.type }}</td>
+            <td>{{ 'Yes' if field.nullable else 'No' }}</td>
+            <td>
+                {% if field.references %}
+                <ul>
+                    {% for ref in field.references %}
+                    <li>{{ ref }}</li>
+                    {% endfor %}
+                </ul>
+                {% else %} — {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="error">Entity "{{ name }}" not found in plugin "{{ alias }}".</p>
+{% endif %} {% endblock %}

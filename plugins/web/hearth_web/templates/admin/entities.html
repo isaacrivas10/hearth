@@ -1,0 +1,22 @@
+{% extends "admin/base.html" %} {% block title %}Entities - {{ brand.name }}{%
+endblock %} {% block page_content %}
+<header class="page-header">
+    <h1>Entities</h1>
+</header>
+
+{% for plugin in plugins %} {% if plugin.entities %}
+<section class="plugin-entities">
+    <h2>{{ plugin.alias }} ({{ plugin.entities|length }})</h2>
+    <ul class="entity-list">
+        {% for entity in plugin.entities %}
+        <li>
+            <a href="/admin/entities/{{ plugin.alias }}/{{ entity.__name__ }}"
+                >{{ entity.__name__ }}</a
+            >
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %} {% endfor %} {% if not plugins|selectattr('entities')|list %}
+<p>No entities registered.</p>
+{% endif %} {% endblock %}

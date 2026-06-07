@@ -1,0 +1,16 @@
+<nav class="admin-nav" aria-label="Admin navigation">
+    <ul>
+        {% for section, items in nav|groupby('section') %}
+        <li class="nav-section">
+            <span class="nav-section-label">{{ section|title }}</span>
+            <ul class="nav-items">
+                {% for item in items %}
+                <li class="nav-item">
+                    <a href="{{ item.path }}">{{ item.label }}</a>
+                </li>
+                {% endfor %}
+            </ul>
+        </li>
+        {% endfor %}
+    </ul>
+</nav>
