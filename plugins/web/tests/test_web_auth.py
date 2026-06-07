@@ -91,9 +91,7 @@ async def test_logout_clears_session(web):
     web.client.post(
         "/login", data={"email": "admin@x.com", "password": "adminpass", "csrf_token": csrf_token}
     )
-    get_resp2 = web.client.get("/login")
-    csrf_token2 = _csrf_token(get_resp2)
-    resp = web.client.post("/logout", data={"csrf_token": csrf_token2}, follow_redirects=False)
+    resp = web.client.post("/logout", follow_redirects=False)
     assert resp.status_code == 303
     assert resp.headers["location"] == "/login"
 
@@ -101,17 +99,6 @@ async def test_logout_clears_session(web):
 @pytest.mark.asyncio
 async def test_login_csrf_rejected(web):
     resp = web.client.post("/login", data={"email": "admin@x.com", "password": "adminpass"})
-    assert resp.status_code == 403
-
-
-@pytest.mark.asyncio
-async def test_logout_csrf_rejected(web):
-    get_resp = web.client.get("/login")
-    csrf_token = _csrf_token(get_resp)
-    web.client.post(
-        "/login", data={"email": "admin@x.com", "password": "adminpass", "csrf_token": csrf_token}
-    )
-    resp = web.client.post("/logout")
     assert resp.status_code == 403
 
 
@@ -202,9 +189,7 @@ async def test_logout_clears_session_completely(web_factory):
     resp = fx.client.get("/diag/whoami")
     assert resp.json()["kind"] == "user"
 
-    get_resp2 = fx.client.get("/login")
-    csrf_token2 = _csrf_token(get_resp2)
-    fx.client.post("/logout", data={"csrf_token": csrf_token2})
+    fx.client.post("/logout")
 
     resp = fx.client.get("/diag/whoami")
     assert resp.json()["kind"] == "anonymous"

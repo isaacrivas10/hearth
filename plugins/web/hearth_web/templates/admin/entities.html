@@ -5,18 +5,18 @@ endblock %} {% block page_content %}
 </header>
 
 {% for plugin in plugins %} {% if plugin.entities %}
-<section class="plugin-entities">
-    <h2>{{ plugin.alias }} ({{ plugin.entities|length }})</h2>
-    <ul class="entity-list">
+<wa-card>
+    <h2 slot="header">{{ plugin.alias }} ({{ plugin.entities|length }})</h2>
+    <div class="wa-cluster">
         {% for entity in plugin.entities %}
-        <li>
+        <wa-tag>
             <a href="/admin/entities/{{ plugin.alias }}/{{ entity.__name__ }}"
                 >{{ entity.__name__ }}</a
             >
-        </li>
+        </wa-tag>
         {% endfor %}
-    </ul>
-</section>
+    </div>
+</wa-card>
 {% endif %} {% endfor %} {% if not plugins|selectattr('entities')|list %}
 <p>No entities registered.</p>
 {% endif %} {% endblock %}

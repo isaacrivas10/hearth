@@ -2,16 +2,28 @@
     <ul>
         {% for section, items in nav|groupby('section') %}
         <li class="nav-section">
-            <span class="nav-section-label"><span>{{ section|title }}</span></span>
+            <span class="nav-section-label"
+                ><span>{{ section|title }}</span></span
+            >
             <ul class="nav-items">
-                {% for item in items %}
-                {% if request is defined %}
-                {% set is_active = (request.url.path == item.path) or (item.path != '/admin' and request.url.path.startswith(item.path)) %}
-                {% else %}
-                {% set is_active = false %}
-                {% endif %}
+                {% for item in items %} {% if request is defined %} {% set
+                is_active = (request.url.path == item.path) or (item.path !=
+                '/admin' and request.url.path.startswith(item.path)) %} {% else
+                %} {% set is_active = false %} {% endif %}
                 <li class="nav-item">
-                    <a href="{{ item.path }}" class="{{ 'active' if is_active else '' }}"{% if is_active %} aria-current="page"{% endif %}><span>{{ item.label }}</span></a>
+                    <a
+                        href="{{ item.path }}"
+                        class="{{ 'active' if is_active else '' }}"
+                        {%
+                        if
+                        is_active
+                        %}
+                        aria-current="page"
+                        {%
+                        endif
+                        %}
+                        ><span>{{ item.label }}</span></a
+                    >
                 </li>
                 {% endfor %}
             </ul>

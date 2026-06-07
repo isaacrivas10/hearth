@@ -2,7 +2,9 @@
 
 > **Source package**: `plugins/web/hearth_web/`
 > **Install**: `pip install hearth[web]`
-> **Status**: v0.0.1 (first release; tracks the 2026-06-05 spec).
+> **Status**: v0.0.1 (first release; tracks the 2026-06-05 spec). Frontend
+> migrated to Web Awesome + the "Iron & Pitch" brand on 2026-06-06 (see
+> `docs/superpowers/specs/2026-06-06-hearth-web-webawesome-migration-design.md`).
 
 ## What hearth-web provides
 
@@ -176,10 +178,38 @@ Permissions are opaque `<resource>:<action>` strings validated against the actor
 | `HEARTH_WEB_TEMPLATE_DIR` | no | — | Override directory for templates (ChoiceLoader priority) |
 | `HEARTH_DEBUG` | no | — | Re-raise exceptions instead of 500 page |
 
+## Frontend stack (Web Awesome + "Iron & Pitch")
+
+The admin UI is built on **Web Awesome** web components (the maintained Shoelace
+successor), themed with the **Iron & Pitch** Hearth brand. Key decisions:
+
+- **Loaded from CDN, not vendored.** Pinned **`@awesome.me/webawesome@3.8.0`**
+  (MIT, free core — no Pro components) is loaded from jsDelivr in `base.html`
+  (`styles/webawesome.css` + the module). Upgrades are a one-line version bump.
+  Trade-off: a runtime CDN dependency (acceptable; not a strict-offline target).
+- **Icons via the Font Awesome CDN** (`<wa-icon>` default). Nothing vendored, and
+  the full free FA library is available to plugin authors via `<wa-icon name="…">`.
+- **Brand theme**: `static/hearth-theme.css` defines canonical `--color-*` tokens
+  (light + `.wa-dark`) and maps Web Awesome's `--wa-*` tokens onto them. The brand
+  ramp derives from `--color-accent`, so `HEARTH_WEB_PRIMARY_COLOR` still cascades
+  to every component (copper `#B84A14` / dark `#D2691E` is the fallback).
+- **Dark mode**: `theme-toggle.js` toggles both `data-theme` and the `wa-dark`
+  class; restored from `localStorage` before paint.
+- **Responsive, no media queries**: `wa-page` (shell, auto nav-drawer) + free
+  layout utilities (`wa-grid`/`wa-cluster`/`wa-stack`/`wa-split`/`wa-flank`).
+- **Custom `hearth-table`** (CSS class) fills Web Awesome's data-table gap; it is
+  plain DOM (server-assertable).
+- **Client-side hydration only** — not Lit SSR (which needs Node; out of scope for
+  the in-process Python kernel). Jinja server-renders the light DOM; component
+  shadow internals hydrate in the browser.
+
 ## Theming & template override
 
-- **Light/dark theme**: CSS custom properties on `:root` and `:root[data-theme="dark"]`. Persisted in `localStorage`, applied on load.
-- **Primary color**: `--color-accent` overridden by `HEARTH_WEB_PRIMARY_COLOR`.
+- **Light/dark theme**: Hearth `--color-*` tokens in `static/hearth-theme.css`
+  (light under `:where(:root)`/`.wa-light`, dark under `.wa-dark`), bridged to the
+  `data-theme` attribute and persisted in `localStorage`.
+- **Primary color**: `--color-accent` overridden by `HEARTH_WEB_PRIMARY_COLOR`;
+  it flows into the Web Awesome brand ramp via the token mapping.
 - **Template override**: Set `HEARTH_WEB_TEMPLATE_DIR=/path/to/templates`. The override directory is checked **first** (via `ChoiceLoader`), then built-in admin templates, then plugin templates. Example: override `admin/dashboard.html` to customize the dashboard.
 
 ## CLI: `hearth web serve`

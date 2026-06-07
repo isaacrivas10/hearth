@@ -4,7 +4,24 @@
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>{% block title %}{{ brand.name }}{% endblock %}</title>
+        <link
+            rel="stylesheet"
+            href="https://ka-f.webawesome.com/webawesome@3.8.0/styles/webawesome.css"
+        />
+        <link rel="stylesheet" href="/static/hearth-theme.css" />
         <link rel="stylesheet" href="/static/base.css" />
+        <script
+            type="module"
+            src="https://ka-f.webawesome.com/webawesome@3.8.0/webawesome.loader.js"
+        ></script>
+        <style>
+            /* Scoped FOUC guard — do NOT blanket-hide all :not(:defined) (would blank wa-page). */
+            wa-page:not(:defined),
+            wa-dialog:not(:defined),
+            wa-drawer:not(:defined) {
+                visibility: hidden;
+            }
+        </style>
         {% if brand.primary_color %}
         <style>
             :root {
@@ -15,7 +32,12 @@
         <script>
             (function () {
                 var t = localStorage.getItem("theme");
-                if (t) document.documentElement.dataset.theme = t;
+                var dark = t === "dark";
+                document.documentElement.dataset.theme = dark
+                    ? "dark"
+                    : "light";
+                document.documentElement.classList.toggle("wa-dark", dark);
+                document.documentElement.classList.toggle("wa-light", !dark);
             })();
         </script>
     </head>
@@ -27,30 +49,5 @@
         <script src="/static/theme-toggle.js"></script>
         <script src="/static/vendor/htmx.min.js" defer></script>
         <script src="/static/vendor/alpine.min.js" defer></script>
-        <script>
-            // Sidebar collapse/expand functionality
-            (function () {
-                var sidebar = document.getElementById('sidebar');
-                var toggle = document.getElementById('sidebar-toggle');
-                if (!sidebar || !toggle) return;
-
-                // Initialize from localStorage
-                var collapsed = localStorage.getItem('sidebar-collapsed') === 'true';
-                if (collapsed) {
-                    sidebar.classList.add('collapsed');
-                    toggle.setAttribute('aria-label', 'Expand sidebar');
-                    toggle.setAttribute('title', 'Expand sidebar');
-                    toggle.textContent = '▶';
-                }
-
-                toggle.addEventListener('click', function () {
-                    var isCollapsed = sidebar.classList.toggle('collapsed');
-                    localStorage.setItem('sidebar-collapsed', isCollapsed);
-                    toggle.setAttribute('aria-label', isCollapsed ? 'Expand sidebar' : 'Collapse sidebar');
-                    toggle.setAttribute('title', isCollapsed ? 'Expand sidebar' : 'Collapse sidebar');
-                    toggle.textContent = isCollapsed ? '▶' : '◀';
-                });
-            })();
-        </script>
     </body>
 </html>

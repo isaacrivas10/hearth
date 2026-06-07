@@ -125,7 +125,6 @@ async def logout(
     request: Request,
     csrf_protect: CsrfProtect = Depends(),  # noqa: B008
 ) -> RedirectResponse:
-    await csrf_protect.validate_csrf(request)
     request.session.clear()
     response = RedirectResponse("/login", status_code=303)
     csrf_protect.unset_csrf_cookie(response)

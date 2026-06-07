@@ -1,44 +1,40 @@
-{% extends "base.html" %}
-{% block body %}
-<div class="app-shell">
-    <aside class="sidebar" id="sidebar">
-        <div class="sidebar-brand">
+{% extends "base.html" %} {% block body %}
+<wa-page>
+    <header slot="header" class="app-header">
+        <a href="/admin" class="brand">
             {% if brand.logo_url %}<img
                 src="{{ brand.logo_url }}"
                 alt=""
-                class="sidebar-logo"
+                width="24"
+                height="24"
+            />{% else %}<img
+                src="/static/img/hearth-mark.svg"
+                alt=""
+                width="24"
+                height="24"
             />{% endif %}
-            <span class="sidebar-brand-name">{{ brand.name }}</span>
-            <button
-                type="button"
-                class="icon-btn sidebar-toggle"
-                id="sidebar-toggle"
-                aria-label="Collapse sidebar"
-                title="Collapse sidebar"
-            >
-                ◀
-            </button>
-        </div>
-        {% include "admin/_partials/nav.html" %}
-        <div class="sidebar-footer">
-            <button
-                type="button"
-                class="icon-btn"
+            <strong>{{ brand.name }}</strong>
+        </a>
+        <div class="header-actions">
+            <wa-button
+                appearance="plain"
+                size="small"
                 onclick="toggleTheme()"
                 aria-label="Toggle theme"
             >
-                ◐
-            </button>
+                <wa-icon name="circle-half-stroke"></wa-icon>
+            </wa-button>
             {% if current_actor is defined and current_actor.actor_kind !=
             'anonymous' %}
             <form method="post" action="/logout" class="signout-form">
-                <button type="submit" class="ghost-btn">Sign out</button>
+                <wa-button type="submit" appearance="plain" size="small"
+                    >Sign out</wa-button
+                >
             </form>
             {% endif %}
         </div>
-    </aside>
-    <div class="app-main">
-        <main class="content">{% block page_content %}{% endblock %}</main>
-    </div>
-</div>
+    </header>
+    <div slot="navigation">{% include "admin/_partials/nav.html" %}</div>
+    <main>{% block page_content %}{% endblock %}</main>
+</wa-page>
 {% endblock %}

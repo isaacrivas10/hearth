@@ -7,34 +7,34 @@ brand.name }}{% endblock %} {% block page_content %}
 
 {% if fields %}
 <div class="table-wrap">
-<table class="admin-table">
-    <thead>
-        <tr>
-            <th>Field</th>
-            <th>Type</th>
-            <th>Nullable</th>
-            <th>References</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for field in fields %}
-        <tr>
-            <td>{{ field.name }}</td>
-            <td>{{ field.type }}</td>
-            <td>{{ 'Yes' if field.nullable else 'No' }}</td>
-            <td>
-                {% if field.references %}
-                <ul class="ref-list">
-                    {% for ref in field.references %}
-                    <li>{{ ref }}</li>
-                    {% endfor %}
-                </ul>
-                {% else %} — {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+    <table class="hearth-table">
+        <thead>
+            <tr>
+                <th>Field</th>
+                <th>Type</th>
+                <th>Nullable</th>
+                <th>References</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for field in fields %}
+            <tr>
+                <td>{{ field.name }}</td>
+                <td>{{ field.type }}</td>
+                <td>{{ 'Yes' if field.nullable else 'No' }}</td>
+                <td>
+                    {% if field.references %}
+                    <ul class="ref-list">
+                        {% for ref in field.references %}
+                        <li>{{ ref }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% else %} — {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 {% else %}
 <p class="error">Entity "{{ name }}" not found in plugin "{{ alias }}".</p>

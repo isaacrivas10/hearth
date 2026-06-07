@@ -2,9 +2,15 @@
 <header class="page-header">
     <h1>Schema Diagram</h1>
     <div class="schema-controls" aria-label="Diagram zoom controls">
-        <button type="button" class="icon-btn" id="zoom-in" aria-label="Zoom in" title="Zoom in">+</button>
-        <button type="button" class="icon-btn" id="zoom-out" aria-label="Zoom out" title="Zoom out">−</button>
-        <button type="button" class="icon-btn" id="zoom-reset" aria-label="Reset zoom" title="Reset zoom">⌂</button>
+        <wa-button appearance="plain" size="small" id="zoom-in" aria-label="Zoom in" title="Zoom in">
+            <wa-icon name="plus" slot="prefix"></wa-icon>
+        </wa-button>
+        <wa-button appearance="plain" size="small" id="zoom-out" aria-label="Zoom out" title="Zoom out">
+            <wa-icon name="dash" slot="prefix"></wa-icon>
+        </wa-button>
+        <wa-button appearance="plain" size="small" id="zoom-reset" aria-label="Reset zoom" title="Reset zoom">
+            <wa-icon name="arrow-counterclockwise" slot="prefix"></wa-icon>
+        </wa-button>
         <span class="zoom-level" id="zoom-level" aria-live="polite">100%</span>
     </div>
 </header>

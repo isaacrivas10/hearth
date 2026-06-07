@@ -1,0 +1,65 @@
+/* hearth-theme.css — Iron & Pitch. Canonical Hearth tokens + Web Awesome mapping. */
+:where(:root), .wa-light {
+  color-scheme: light;
+  --color-bg: #F8F8F7;
+  --color-surface: #F0F0EE;
+  --color-surface-2: #E8E8E6;
+  --color-fg: #1A1A1A;
+  --color-muted: #636363;
+  --color-border: #D4D4D2;
+  --color-border-strong: #C4C4C2;
+  --color-accent: #B84A14;
+  --color-accent-hover: #A03D10;
+  --accent-soft: color-mix(in srgb, var(--color-accent) 12%, transparent);
+
+  --color-success: #5C7346;
+  --color-danger: #A6342A;
+  --color-warning: #B8801C;
+  --color-on-loud: #F8F8F7;
+
+  --radius: 8px;
+  --radius-sm: 5px;
+}
+.wa-dark {
+  color-scheme: dark;
+  --color-bg: #0F0F0F;
+  --color-surface: #1C1C1C;
+  --color-surface-2: #242424;
+  --color-fg: #E2E2E0;
+  --color-muted: #9A9A98;
+  --color-border: #2A2A2A;
+  --color-border-strong: #3A3A3A;
+  --color-divider: #454545;
+  --color-accent: #D2691E;
+  --color-accent-hover: #E07A2E;
+
+  --color-success: #7C9460;
+  --color-danger: #C85546;
+  --color-warning: #D6A23A;
+}
+
+:where(:root), .wa-light, .wa-dark {
+  /* surfaces */
+  --wa-color-surface-default: var(--color-bg);
+  --wa-color-surface-raised: var(--color-surface);
+  --wa-color-surface-lowered: var(--color-surface-2);
+  /* text/border */
+  --wa-color-text-normal: var(--color-fg);
+  --wa-color-text-quiet: var(--color-muted);
+  --wa-color-surface-border: var(--color-border);
+  /* brand ramp derived from --color-accent (fill/loud + tints) */
+  --wa-color-brand-fill-loud: var(--color-accent);
+  --wa-color-brand-fill-quiet: var(--accent-soft);
+  --wa-color-brand-on-loud: var(--color-on-loud);
+  --wa-color-brand-border: var(--color-accent);
+  /* semantics */
+  --wa-color-success-fill-loud: var(--color-success);
+  --wa-color-warning-fill-loud: var(--color-warning);
+  --wa-color-danger-fill-loud: var(--color-danger);
+  /* shape */
+  --wa-border-radius-m: var(--radius);
+  --wa-border-radius-s: var(--radius-sm);
+  /* shadow */
+  --wa-shadow-s: 0 1px 2px color-mix(in srgb, var(--color-fg) 12%, transparent);
+  --wa-shadow-m: 0 2px 8px color-mix(in srgb, var(--color-fg) 16%, transparent);
+}

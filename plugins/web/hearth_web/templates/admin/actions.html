@@ -5,14 +5,14 @@ endblock %} {% block page_content %}
 </header>
 
 {% for plugin in plugins %} {% if plugin.actions %}
-<section class="plugin-actions">
-    <h2>{{ plugin.alias }} ({{ plugin.actions|length }})</h2>
-    <ul class="action-list">
+<wa-card>
+    <h2 slot="header">{{ plugin.alias }} ({{ plugin.actions|length }})</h2>
+    <div class="wa-cluster">
         {% for action in plugin.actions %}
-        <li>{{ action.__name__ }}</li>
+        <wa-tag>{{ action.__name__ }}</wa-tag>
         {% endfor %}
-    </ul>
-</section>
+    </div>
+</wa-card>
 {% endif %} {% endfor %} {% if not plugins|selectattr('actions')|list %}
 <p>No actions registered.</p>
 {% endif %} {% endblock %}

@@ -11,14 +11,15 @@ endblock %} {% block page_content %}
     </div>
     <div class="stat-card">
         <span class="stat-value">
-            {% if db.kernel_ok %}<span class="badge badge-ok">OK</span>{% else %}<span class="badge badge-missing">MISSING</span>{% endif %}
+            {% if db.kernel_ok %}<wa-badge variant="success">OK</wa-badge>{%
+            else %}<wa-badge variant="danger">MISSING</wa-badge>{% endif %}
         </span>
         <span class="stat-label">Kernel tables</span>
     </div>
 </div>
 
 <div class="table-wrap">
-    <table class="data-table">
+    <table class="hearth-table">
         <thead>
             <tr>
                 <th>Table</th>
@@ -29,7 +30,12 @@ endblock %} {% block page_content %}
             {% for t in db.tables %}
             <tr>
                 <td>{{ t.name }}</td>
-                <td>{% if t.present %}<span class="badge badge-ok">present</span>{% else %}<span class="badge badge-missing">missing</span>{% endif %}</td>
+                <td>
+                    {% if t.present %}<wa-badge variant="success"
+                        >present</wa-badge
+                    >{% else %}<wa-badge variant="danger">missing</wa-badge>{%
+                    endif %}
+                </td>
             </tr>
             {% endfor %}
         </tbody>

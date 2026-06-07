@@ -20,48 +20,48 @@ brand.name }}{% endblock %} {% block page_content %}
         <dd>{{ plugin.install_path }}</dd>
     </dl>
 
-    <section class="entities-section">
-        <h2>Entities ({{ plugin.entities|length }})</h2>
+    <wa-card>
+        <h2 slot="header">Entities ({{ plugin.entities|length }})</h2>
         {% if plugin.entities %}
-        <ul class="entity-list">
+        <div class="wa-cluster">
             {% for entity in plugin.entities %}
-            <li>
+            <wa-tag>
                 <a href="/admin/entities/{{ alias }}/{{ entity.__name__ }}"
                     >{{ entity.__name__ }}</a
                 >
-            </li>
+            </wa-tag>
             {% endfor %}
-        </ul>
+        </div>
         {% else %}
         <p>No entities registered.</p>
         {% endif %}
-    </section>
+    </wa-card>
 
-    <section class="actions-section">
-        <h2>Actions ({{ plugin.actions|length }})</h2>
+    <wa-card>
+        <h2 slot="header">Actions ({{ plugin.actions|length }})</h2>
         {% if plugin.actions %}
-        <ul class="action-list">
+        <div class="wa-cluster">
             {% for action in plugin.actions %}
-            <li>{{ action.__name__ }}</li>
+            <wa-tag>{{ action.__name__ }}</wa-tag>
             {% endfor %}
-        </ul>
+        </div>
         {% else %}
         <p>No actions registered.</p>
         {% endif %}
-    </section>
+    </wa-card>
 
-    <section class="events-section">
-        <h2>Events ({{ plugin.events|length }})</h2>
+    <wa-card>
+        <h2 slot="header">Events ({{ plugin.events|length }})</h2>
         {% if plugin.events %}
-        <ul class="event-list">
+        <div class="wa-cluster">
             {% for event in plugin.events %}
-            <li>{{ event.__name__ }}</li>
+            <wa-tag>{{ event.__name__ }}</wa-tag>
             {% endfor %}
-        </ul>
+        </div>
         {% else %}
         <p>No events registered.</p>
         {% endif %}
-    </section>
+    </wa-card>
 </div>
 {% else %}
 <p class="error">Plugin "{{ alias }}" not found.</p>
