@@ -33,20 +33,22 @@ async def acquire_migration_lock(
     """Hold the migration lock for the duration of the context.
 
     PostgreSQL: pg_try_advisory_lock polled with the given timeout.
-    SQLite: BEGIN EXCLUSIVE on a sentinel table.
+    SQLite: sentinel-row lock with stale-row self-healing.
     Raises MigrationLockContention if not acquired in time.
     """
     dialect = engine.dialect.name
     if dialect == "postgresql":
-        async for _ in _acquire_pg(engine, timeout):
-            yield
-            return
+        gen = _acquire_pg(engine, timeout)
     elif dialect == "sqlite":
-        async for _ in _acquire_sqlite(engine, timeout):
-            yield
-            return
+        gen = _acquire_sqlite(engine, timeout)
     else:
         raise NotImplementedError(f"Migration lock not implemented for dialect '{dialect}'")
+
+    try:
+        await gen.__anext__()
+        yield
+    finally:
+        await gen.aclose()
 
 
 async def _acquire_pg(engine: AsyncEngine, timeout: float) -> AsyncGenerator[None]:
