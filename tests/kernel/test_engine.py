@@ -54,9 +54,9 @@ async def test_sqlite_engine_enables_foreign_keys(tmp_path: Path) -> None:
         await engine.dispose()
 
 
-@pytest.mark.skipif("DATABASE_URL" not in os.environ, reason="DATABASE_URL not set")
+@pytest.mark.skipif("TEST_DATABASE_URL" not in os.environ, reason="TEST_DATABASE_URL not set")
 async def test_postgres_engine_executes_simple_query() -> None:
-    engine = make_async_engine(os.environ["DATABASE_URL"])
+    engine = make_async_engine(os.environ["TEST_DATABASE_URL"])
     try:
         async with engine.connect() as conn:
             result = await conn.execute(text("SELECT 1 AS n"))

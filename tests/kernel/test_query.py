@@ -1,6 +1,6 @@
 """Tests for the async Query builder.
 
-Runs on SQLite always; additionally on Postgres when DATABASE_URL is set.
+Runs on SQLite always; additionally on Postgres when TEST_DATABASE_URL is set.
 """
 
 from collections.abc import AsyncIterator, Callable

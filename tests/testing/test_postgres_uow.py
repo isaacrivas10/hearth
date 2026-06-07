@@ -1,6 +1,6 @@
 """Tests for the Postgres-backed UnitOfWork.
 
-Requires DATABASE_URL pointing at a Postgres instance Hearth can drop /
+Requires TEST_DATABASE_URL pointing at a Postgres instance Hearth can drop /
 recreate tables in. Skips if the env var is unset.
 """
 
@@ -13,8 +13,8 @@ from hearth import Entity, EntityId, EntityNotFoundError, Event, Value, field_va
 from hearth.testing import PostgresHarness
 
 pytestmark = pytest.mark.skipif(
-    "DATABASE_URL" not in os.environ,
-    reason="DATABASE_URL not set; skipping Postgres tests",
+    "TEST_DATABASE_URL" not in os.environ,
+    reason="TEST_DATABASE_URL not set; skipping Postgres tests",
 )
 
 
@@ -42,7 +42,7 @@ class _CreatedEvent(Event):
 
 @pytest.fixture
 async def pg_harness() -> AsyncIterator[PostgresHarness]:
-    h = PostgresHarness(os.environ["DATABASE_URL"])
+    h = PostgresHarness(os.environ["TEST_DATABASE_URL"])
     await h.setup(entities=[_Cust])
     try:
         await h.reset()
