@@ -1,15 +1,42 @@
-{% extends "base.html" %} {% block content %}
-<form method="post" action="/login">
-    {% if error %}
-    <p class="error">{{ error }}</p>
-    {% endif %}
-    <input type="hidden" name="next" value="{{ next }}" />
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
-    <label
-        >Email
-        <input name="email" type="email" required value="{{ email or '' }}"
-    /></label>
-    <label>Password <input name="password" type="password" required /></label>
-    <button type="submit">Sign in</button>
-</form>
+{% extends "base.html" %}
+{% block body %}
+<div class="auth-shell">
+    <div class="auth-card">
+        <div class="auth-brand">
+            {% if brand.logo_url %}<img
+                src="{{ brand.logo_url }}"
+                alt=""
+                class="auth-logo"
+            />{% endif %}
+            <strong class="auth-brand-name">{{ brand.name }}</strong>
+        </div>
+        {% if error %}
+        <div class="callout callout-danger" role="alert">{{ error }}</div>
+        {% endif %}
+        <form method="post" action="/login" class="auth-form">
+            <input type="hidden" name="next" value="{{ next }}" />
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+            <label class="field">
+                <span class="field-label">Email</span>
+                <input
+                    name="email"
+                    type="email"
+                    required
+                    value="{{ email or '' }}"
+                    autocomplete="username"
+                />
+            </label>
+            <label class="field">
+                <span class="field-label">Password</span>
+                <input
+                    name="password"
+                    type="password"
+                    required
+                    autocomplete="current-password"
+                />
+            </label>
+            <button type="submit" class="btn-primary">Sign in</button>
+        </form>
+    </div>
+</div>
 {% endblock %}

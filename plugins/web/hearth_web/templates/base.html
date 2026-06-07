@@ -21,22 +21,9 @@
     </head>
 
     <body>
-        <header>
-            {% if brand.logo_url %}<img
-                src="{{ brand.logo_url }}"
-                alt=""
-                height="28"
-            />{% endif %}
-            <strong>{{ brand.name }}</strong>
-            <button type="button" onclick="toggleTheme()">◐</button>
-            {% if current_actor is defined and current_actor.actor_kind !=
-            'anonymous' %}
-            <form method="post" action="/logout" style="display: inline">
-                <button>Sign out</button>
-            </form>
-            {% endif %}
-        </header>
-        <main>{% block content %}{% endblock %}</main>
+        {% block body %}
+        <main class="content">{% block content %}{% endblock %}</main>
+        {% endblock %}
         <script src="/static/theme-toggle.js"></script>
         <script src="/static/vendor/htmx.min.js" defer></script>
         <script src="/static/vendor/alpine.min.js" defer></script>

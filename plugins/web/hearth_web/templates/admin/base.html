@@ -1,3 +1,35 @@
-{% extends "base.html" %} {% block content %} {% include
-"admin/_partials/nav.html" %} {% block page_content %}{% endblock %} {% endblock
-%}
+{% extends "base.html" %}
+{% block body %}
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            {% if brand.logo_url %}<img
+                src="{{ brand.logo_url }}"
+                alt=""
+                class="sidebar-logo"
+            />{% endif %}
+            <span class="sidebar-brand-name">{{ brand.name }}</span>
+        </div>
+        {% include "admin/_partials/nav.html" %}
+        <div class="sidebar-footer">
+            <button
+                type="button"
+                class="icon-btn"
+                onclick="toggleTheme()"
+                aria-label="Toggle theme"
+            >
+                ◐
+            </button>
+            {% if current_actor is defined and current_actor.actor_kind !=
+            'anonymous' %}
+            <form method="post" action="/logout" class="signout-form">
+                <button type="submit" class="ghost-btn">Sign out</button>
+            </form>
+            {% endif %}
+        </div>
+    </aside>
+    <div class="app-main">
+        <main class="content">{% block page_content %}{% endblock %}</main>
+    </div>
+</div>
+{% endblock %}

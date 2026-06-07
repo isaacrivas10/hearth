@@ -10,6 +10,7 @@ endblock %} {% block page_content %}
 
 <script src="/static/vendor/mermaid.min.js" defer></script>
 <script>
-    mermaid.initialize({ startOnLoad: true, theme: "default" });
+    const isDark = document.documentElement.dataset.theme === "dark";
+    mermaid.initialize({ startOnLoad: true, theme: isDark ? "dark" : "default" });
 </script>
 {% endblock %}

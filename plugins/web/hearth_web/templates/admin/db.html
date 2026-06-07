@@ -10,25 +10,29 @@ endblock %} {% block page_content %}
         <span class="stat-label">Outbox rows</span>
     </div>
     <div class="stat-card">
-        <span class="stat-value">{{ "OK" if db.kernel_ok else "MISSING" }}</span>
+        <span class="stat-value">
+            {% if db.kernel_ok %}<span class="badge badge-ok">OK</span>{% else %}<span class="badge badge-missing">MISSING</span>{% endif %}
+        </span>
         <span class="stat-label">Kernel tables</span>
     </div>
 </div>
 
-<table class="data-table">
-    <thead>
-        <tr>
-            <th>Table</th>
-            <th>Status</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for t in db.tables %}
-        <tr>
-            <td>{{ t.name }}</td>
-            <td>{{ "present" if t.present else "missing" }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div class="table-wrap">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Table</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for t in db.tables %}
+            <tr>
+                <td>{{ t.name }}</td>
+                <td>{% if t.present %}<span class="badge badge-ok">present</span>{% else %}<span class="badge badge-missing">missing</span>{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% endblock %}

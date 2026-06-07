@@ -6,6 +6,7 @@ brand.name }}{% endblock %} {% block page_content %}
 </header>
 
 {% if fields %}
+<div class="table-wrap">
 <table class="admin-table">
     <thead>
         <tr>
@@ -23,7 +24,7 @@ brand.name }}{% endblock %} {% block page_content %}
             <td>{{ 'Yes' if field.nullable else 'No' }}</td>
             <td>
                 {% if field.references %}
-                <ul>
+                <ul class="ref-list">
                     {% for ref in field.references %}
                     <li>{{ ref }}</li>
                     {% endfor %}
@@ -34,6 +35,7 @@ brand.name }}{% endblock %} {% block page_content %}
         {% endfor %}
     </tbody>
 </table>
+</div>
 {% else %}
 <p class="error">Entity "{{ name }}" not found in plugin "{{ alias }}".</p>
 {% endif %} {% endblock %}

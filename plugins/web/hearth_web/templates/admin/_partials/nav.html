@@ -5,8 +5,13 @@
             <span class="nav-section-label">{{ section|title }}</span>
             <ul class="nav-items">
                 {% for item in items %}
+                {% if request is defined %}
+                {% set is_active = (request.url.path == item.path) or (item.path != '/admin' and request.url.path.startswith(item.path)) %}
+                {% else %}
+                {% set is_active = false %}
+                {% endif %}
                 <li class="nav-item">
-                    <a href="{{ item.path }}">{{ item.label }}</a>
+                    <a href="{{ item.path }}" class="{{ 'active' if is_active else '' }}"{% if is_active %} aria-current="page"{% endif %}>{{ item.label }}</a>
                 </li>
                 {% endfor %}
             </ul>
