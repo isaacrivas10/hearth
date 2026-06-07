@@ -27,5 +27,30 @@
         <script src="/static/theme-toggle.js"></script>
         <script src="/static/vendor/htmx.min.js" defer></script>
         <script src="/static/vendor/alpine.min.js" defer></script>
+        <script>
+            // Sidebar collapse/expand functionality
+            (function () {
+                var sidebar = document.getElementById('sidebar');
+                var toggle = document.getElementById('sidebar-toggle');
+                if (!sidebar || !toggle) return;
+
+                // Initialize from localStorage
+                var collapsed = localStorage.getItem('sidebar-collapsed') === 'true';
+                if (collapsed) {
+                    sidebar.classList.add('collapsed');
+                    toggle.setAttribute('aria-label', 'Expand sidebar');
+                    toggle.setAttribute('title', 'Expand sidebar');
+                    toggle.textContent = '▶';
+                }
+
+                toggle.addEventListener('click', function () {
+                    var isCollapsed = sidebar.classList.toggle('collapsed');
+                    localStorage.setItem('sidebar-collapsed', isCollapsed);
+                    toggle.setAttribute('aria-label', isCollapsed ? 'Expand sidebar' : 'Collapse sidebar');
+                    toggle.setAttribute('title', isCollapsed ? 'Expand sidebar' : 'Collapse sidebar');
+                    toggle.textContent = isCollapsed ? '▶' : '◀';
+                });
+            })();
+        </script>
     </body>
 </html>

@@ -161,6 +161,68 @@ pre,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: opacity 0.15s ease, width 0.15s ease;
+}
+
+.sidebar-toggle {
+  margin-left: auto;
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.sidebar-toggle:hover {
+  opacity: 1;
+}
+
+.sidebar.collapsed .sidebar-brand-name,
+.sidebar.collapsed .nav-section-label,
+.sidebar.collapsed .nav-item a span,
+.sidebar.collapsed .signout-form button span {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.sidebar.collapsed .sidebar-toggle {
+  transform: rotate(180deg);
+}
+
+.sidebar.collapsed {
+  width: 56px;
+  grid-template-columns: 56px 1fr;
+}
+
+.sidebar.collapsed .admin-nav ul {
+  padding: var(--space-3) 0;
+}
+
+.sidebar.collapsed .nav-item a {
+  justify-content: center;
+  padding: var(--space-2) var(--space-3);
+}
+
+.sidebar.collapsed .nav-section-label {
+  padding: 0;
+  text-align: center;
+}
+
+.sidebar.collapsed .sidebar-footer {
+  justify-content: center;
+  padding: var(--space-3) 0;
+}
+
+.sidebar.collapsed .signout-form {
+  display: none;
+}
+
+.sidebar {
+  transition: width 0.2s ease, grid-template-columns 0.2s ease;
+  width: 232px;
+}
+
+.app-shell {
+  transition: grid-template-columns 0.2s ease;
 }
 
 .sidebar-footer {
@@ -668,19 +730,58 @@ textarea:focus {
    Schema diagram
    ============================================================ */
 
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.schema-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.zoom-level {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  min-width: 4.5ch;
+  text-align: right;
+}
+
 .schema-container {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   padding: var(--space-5);
   box-shadow: var(--shadow-sm);
-  overflow-x: auto;
+  overflow: hidden; /* clip during transform */
   text-align: center;
+  cursor: grab;
+  position: relative;
+}
+
+.schema-container:active {
+  cursor: grabbing;
 }
 
 .schema-container .mermaid {
   display: inline-block;
   margin: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+/* Ensure mermaid SVG fills container appropriately */
+.schema-container .mermaid svg {
+  max-width: none;
+  height: auto;
 }
 
 /* ============================================================

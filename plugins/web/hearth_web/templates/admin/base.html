@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block body %}
 <div class="app-shell">
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
         <div class="sidebar-brand">
             {% if brand.logo_url %}<img
                 src="{{ brand.logo_url }}"
@@ -9,6 +9,15 @@
                 class="sidebar-logo"
             />{% endif %}
             <span class="sidebar-brand-name">{{ brand.name }}</span>
+            <button
+                type="button"
+                class="icon-btn sidebar-toggle"
+                id="sidebar-toggle"
+                aria-label="Collapse sidebar"
+                title="Collapse sidebar"
+            >
+                ◀
+            </button>
         </div>
         {% include "admin/_partials/nav.html" %}
         <div class="sidebar-footer">

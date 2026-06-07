@@ -2,7 +2,7 @@
     <ul>
         {% for section, items in nav|groupby('section') %}
         <li class="nav-section">
-            <span class="nav-section-label">{{ section|title }}</span>
+            <span class="nav-section-label"><span>{{ section|title }}</span></span>
             <ul class="nav-items">
                 {% for item in items %}
                 {% if request is defined %}
@@ -11,7 +11,7 @@
                 {% set is_active = false %}
                 {% endif %}
                 <li class="nav-item">
-                    <a href="{{ item.path }}" class="{{ 'active' if is_active else '' }}"{% if is_active %} aria-current="page"{% endif %}>{{ item.label }}</a>
+                    <a href="{{ item.path }}" class="{{ 'active' if is_active else '' }}"{% if is_active %} aria-current="page"{% endif %}><span>{{ item.label }}</span></a>
                 </li>
                 {% endfor %}
             </ul>

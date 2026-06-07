@@ -1,16 +1,185 @@
-{% extends "admin/base.html" %} {% block title %}Schema - {{ brand.name }}{%
-endblock %} {% block page_content %}
+{% extends "admin/base.html" %} {% block title %}Schema - {{ brand.name }}{% endblock %} {% block page_content %}
 <header class="page-header">
     <h1>Schema Diagram</h1>
+    <div class="schema-controls" aria-label="Diagram zoom controls">
+        <button type="button" class="icon-btn" id="zoom-in" aria-label="Zoom in" title="Zoom in">+</button>
+        <button type="button" class="icon-btn" id="zoom-out" aria-label="Zoom out" title="Zoom out">−</button>
+        <button type="button" class="icon-btn" id="zoom-reset" aria-label="Reset zoom" title="Reset zoom">⌂</button>
+        <span class="zoom-level" id="zoom-level" aria-live="polite">100%</span>
+    </div>
 </header>
 
-<div class="schema-container">
-    <pre class="mermaid">{{ mermaid }}</pre>
+<div class="schema-container" id="schema-container">
+    <pre class="mermaid" id="mermaid-diagram">{{ mermaid }}</pre>
 </div>
 
 <script src="/static/vendor/mermaid.min.js" defer></script>
 <script>
-    const isDark = document.documentElement.dataset.theme === "dark";
-    mermaid.initialize({ startOnLoad: true, theme: isDark ? "dark" : "default" });
+    // Initialize zoom/pan when DOM is ready
+    // NOTE: In headless Chrome, document.readyState is "complete" from the start,
+    // so we cannot rely on it. Use DOMContentLoaded or setTimeout fallback.
+    function initZoom() {
+        const container = document.getElementById('schema-container');
+        const diagram = document.getElementById('mermaid-diagram');
+        const zoomIn = document.getElementById('zoom-in');
+        const zoomOut = document.getElementById('zoom-out');
+        const zoomReset = document.getElementById('zoom-reset');
+        const zoomLevel = document.getElementById('zoom-level');
+
+        if (!container || !diagram) return;
+
+        // State
+        let scale = 1;
+        let translateX = 0;
+        let translateY = 0;
+        let isPanning = false;
+        let startX = 0;
+        let startY = 0;
+        const MIN_SCALE = 0.2;
+        const MAX_SCALE = 3;
+        const SCALE_STEP = 0.2;
+
+        function updateTransform() {
+            diagram.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+            diagram.style.transformOrigin = '0 0';
+            zoomLevel.textContent = Math.round(scale * 100) + '%';
+        }
+
+        function zoom(delta, centerX, centerY) {
+            const newScale = Math.min(Math.max(scale + delta, MIN_SCALE), MAX_SCALE);
+            if (newScale === scale) return;
+
+            // Adjust translation to zoom toward the center point
+            const rect = container.getBoundingClientRect();
+            const offsetX = centerX - rect.left;
+            const offsetY = centerY - rect.top;
+
+            translateX = offsetX - (offsetX - translateX) * (newScale / scale);
+            translateY = offsetY - (offsetY - translateY) * (newScale / scale);
+            scale = newScale;
+            updateTransform();
+        }
+
+        function resetZoom() {
+            scale = 1;
+            translateX = 0;
+            translateY = 0;
+            updateTransform();
+        }
+
+        // Mouse wheel zoom (Ctrl/Cmd + scroll)
+        container.addEventListener('wheel', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+                zoom(e.deltaY > 0 ? -SCALE_STEP : SCALE_STEP, e.clientX, e.clientY);
+            }
+        }, { passive: false });
+
+        // Pan with mouse drag
+        container.addEventListener('mousedown', function(e) {
+            if (e.target.closest('.schema-controls') || e.target.closest('button')) return;
+            if (e.button !== 0) return;
+
+            isPanning = true;
+            startX = e.clientX - translateX;
+            startY = e.clientY - translateY;
+            container.style.cursor = 'grabbing';
+            e.preventDefault();
+        });
+
+        window.addEventListener('mousemove', function(e) {
+            if (!isPanning) return;
+            translateX = e.clientX - startX;
+            translateY = e.clientY - startY;
+            updateTransform();
+        });
+
+        window.addEventListener('mouseup', function() {
+            if (isPanning) {
+                isPanning = false;
+                container.style.cursor = '';
+            }
+        });
+
+        // Touch support for mobile (pan + pinch zoom)
+        let lastTouchDist = 0;
+
+        container.addEventListener('touchstart', function(e) {
+            if (e.target.closest('.schema-controls') || e.target.closest('button')) return;
+            if (e.touches.length === 1) {
+                isPanning = true;
+                startX = e.touches[0].clientX - translateX;
+                startY = e.touches[0].clientY - translateY;
+            } else if (e.touches.length === 2) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                lastTouchDist = Math.sqrt(dx * dx + dy * dy);
+                isPanning = false;
+            }
+        }, { passive: true });
+
+        container.addEventListener('touchmove', function(e) {
+            if (e.touches.length === 1 && isPanning) {
+                e.preventDefault();
+                translateX = e.touches[0].clientX - startX;
+                translateY = e.touches[0].clientY - startY;
+                updateTransform();
+            } else if (e.touches.length === 2) {
+                e.preventDefault();
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const scaleChange = (dist - lastTouchDist) / 200;
+                if (Math.abs(scaleChange) > 0.01) {
+                    const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                    const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                    zoom(scaleChange, centerX, centerY);
+                    lastTouchDist = dist;
+                }
+            }
+        }, { passive: false });
+
+        container.addEventListener('touchend', function() {
+            isPanning = false;
+        });
+
+        // Button controls
+        zoomIn.addEventListener('click', function() {
+            const rect = container.getBoundingClientRect();
+            zoom(SCALE_STEP, rect.left + rect.width / 2, rect.top + rect.height / 2);
+        });
+
+        zoomOut.addEventListener('click', function() {
+            const rect = container.getBoundingClientRect();
+            zoom(-SCALE_STEP, rect.left + rect.width / 2, rect.top + rect.height / 2);
+        });
+
+        zoomReset.addEventListener('click', resetZoom);
+
+        // Keyboard shortcuts: + / - to zoom, 0 to reset
+        document.addEventListener('keydown', function(e) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if (e.key === '+' || e.key === '=') {
+                const rect = container.getBoundingClientRect();
+                zoom(SCALE_STEP, rect.left + rect.width / 2, rect.top + rect.height / 2);
+            } else if (e.key === '-') {
+                const rect = container.getBoundingClientRect();
+                zoom(-SCALE_STEP, rect.left + rect.width / 2, rect.top + rect.height / 2);
+            } else if (e.key === '0') {
+                resetZoom();
+            }
+        });
+    }
+
+    // Initialize zoom/pan - use DOMContentLoaded or setTimeout fallback
+    function scheduleInitZoom() {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initZoom, { once: true });
+        } else {
+            // DOMContentLoaded already fired. Use setTimeout to yield to event loop.
+            setTimeout(initZoom, 0);
+        }
+    }
+    scheduleInitZoom();
 </script>
 {% endblock %}
