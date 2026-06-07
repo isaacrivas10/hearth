@@ -85,9 +85,7 @@ async def test_lock_recovers_from_stale_row(engine, monkeypatch) -> None:
 
     # And the lock row should be cleared on normal release.
     async with engine.begin() as conn:
-        remaining = await conn.scalar(
-            sa.text("SELECT COUNT(*) FROM _hearth_migration_lock")
-        )
+        remaining = await conn.scalar(sa.text("SELECT COUNT(*) FROM _hearth_migration_lock"))
         assert remaining == 0
 
 

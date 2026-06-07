@@ -30,7 +30,9 @@ async def engine(tmp_path):
 
 
 async def test_apply_raises_when_alembic_version_points_at_missing_revision(
-    engine, tmp_plugin_with_migrations, example_revision_body,
+    engine,
+    tmp_plugin_with_migrations,
+    example_revision_body,
 ) -> None:
     """Applied revision file deleted from the package → apply() must raise.
 
@@ -44,12 +46,16 @@ async def test_apply_raises_when_alembic_version_points_at_missing_revision(
         revision="0001",
         down_revision=None,
         body=example_revision_body.format(
-            revision="0001", down_revision=None, branch=builder.plugin, table="t",
+            revision="0001",
+            down_revision=None,
+            branch=builder.plugin,
+            table="t",
         ),
     )
     registry = Registry.build()
     registry.plugins[builder.plugin] = _fake_plugin_info(
-        builder.plugin, builder.package_dir.parent,
+        builder.plugin,
+        builder.package_dir.parent,
     )
     cfg = build_config(registry, str(engine.url))
     plan = await compute_plan(engine, cfg, registry)
@@ -71,7 +77,11 @@ async def test_apply_raises_when_alembic_version_points_at_missing_revision(
     empty_plan = MigrationPlan(revisions=[])
     with pytest.raises(PluginDowngradeDetected) as excinfo:
         await apply(
-            empty_plan, config=cfg, engine=engine, actor=System(), registry=registry,
+            empty_plan,
+            config=cfg,
+            engine=engine,
+            actor=System(),
+            registry=registry,
         )
 
     message = str(excinfo.value)
@@ -81,6 +91,7 @@ async def test_apply_raises_when_alembic_version_points_at_missing_revision(
 
 def _fake_plugin_info(alias: str, install_path):
     from hearth.kernel.registry import PluginInfo
+
     return PluginInfo(
         alias=alias,
         package=alias,

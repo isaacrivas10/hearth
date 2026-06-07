@@ -23,15 +23,14 @@ async def engine(tmp_path):
         # Create the outbox table so suppression tests can assert against it.
         # Use `tables=` to avoid pulling in any other plugin tables that may
         # have registered against the shared METADATA via test imports.
-        await conn.run_sync(
-            lambda s: OUTBOX_TABLE.create(s, checkfirst=True)
-        )
+        await conn.run_sync(lambda s: OUTBOX_TABLE.create(s, checkfirst=True))
     yield eng
     await eng.dispose()
 
 
 async def test_data_upgrade_is_called_after_ddl_commits(
-    engine, tmp_plugin_with_migrations,
+    engine,
+    tmp_plugin_with_migrations,
 ) -> None:
     builder = tmp_plugin_with_migrations
     builder.add_revision(
@@ -67,7 +66,8 @@ async def test_data_upgrade_is_called_after_ddl_commits(
     )
     registry = Registry.build()
     registry.plugins[builder.plugin] = _fake_plugin_info(
-        builder.plugin, builder.package_dir.parent,
+        builder.plugin,
+        builder.package_dir.parent,
     )
     cfg = build_config(registry, str(engine.url))
     plan = await compute_plan(engine, cfg, registry)
@@ -83,7 +83,8 @@ async def test_data_upgrade_is_called_after_ddl_commits(
 
 
 async def test_audit_row_rolled_back_when_data_upgrade_raises(
-    engine, tmp_plugin_with_migrations,
+    engine,
+    tmp_plugin_with_migrations,
 ) -> None:
     builder = tmp_plugin_with_migrations
     builder.add_revision(
@@ -115,7 +116,8 @@ async def test_audit_row_rolled_back_when_data_upgrade_raises(
     )
     registry = Registry.build()
     registry.plugins[builder.plugin] = _fake_plugin_info(
-        builder.plugin, builder.package_dir.parent,
+        builder.plugin,
+        builder.package_dir.parent,
     )
     cfg = build_config(registry, str(engine.url))
     plan = await compute_plan(engine, cfg, registry)
@@ -134,7 +136,8 @@ async def test_audit_row_rolled_back_when_data_upgrade_raises(
 
 
 async def test_data_upgrade_does_not_emit_outbox_events(
-    engine, tmp_plugin_with_migrations,
+    engine,
+    tmp_plugin_with_migrations,
 ) -> None:
     """Migrations are not user activity; the data UoW suppresses emit."""
     builder = tmp_plugin_with_migrations
@@ -170,7 +173,8 @@ async def test_data_upgrade_does_not_emit_outbox_events(
     )
     registry = Registry.build()
     registry.plugins[builder.plugin] = _fake_plugin_info(
-        builder.plugin, builder.package_dir.parent,
+        builder.plugin,
+        builder.package_dir.parent,
     )
     cfg = build_config(registry, str(engine.url))
     plan = await compute_plan(engine, cfg, registry)
@@ -184,15 +188,14 @@ async def test_data_upgrade_does_not_emit_outbox_events(
             lambda s: "_hearth_outbox" in sa.inspect(s).get_table_names()
         )
         assert outbox_exists, "outbox table missing — fixture regression"
-        count = (
-            await conn.execute(sa.text("SELECT COUNT(*) FROM _hearth_outbox"))
-        ).scalar()
+        count = (await conn.execute(sa.text("SELECT COUNT(*) FROM _hearth_outbox"))).scalar()
         assert count == 0
 
 
 def _fake_plugin_info(alias: str, install_path):
     # Minimal stand-in for tests; real PluginInfo comes from Registry.build().
     from hearth.kernel.registry import PluginInfo
+
     return PluginInfo(
         alias=alias,
         package=alias,

@@ -43,9 +43,7 @@ async def test_plan_lists_pending_revisions(
     )
     # Patch registry to include our tmp plugin.
     registry = Registry.build()
-    registry.plugins[builder.plugin] = _fake_plugin_info(
-        builder.plugin, builder.package_dir.parent
-    )
+    registry.plugins[builder.plugin] = _fake_plugin_info(builder.plugin, builder.package_dir.parent)
     cfg = build_config(registry, str(engine.url))
     plan = await compute_plan(engine, cfg, registry)
     assert len(plan.revisions) == 1
@@ -66,16 +64,12 @@ async def test_plan_skips_revisions_already_applied(
         ),
     )
     async with engine.begin() as conn:
-        await conn.execute(sa.text(
-            "CREATE TABLE alembic_version (version_num VARCHAR(32) PRIMARY KEY)"
-        ))
-        await conn.execute(sa.text(
-            "INSERT INTO alembic_version (version_num) VALUES ('0001')"
-        ))
+        await conn.execute(
+            sa.text("CREATE TABLE alembic_version (version_num VARCHAR(32) PRIMARY KEY)")
+        )
+        await conn.execute(sa.text("INSERT INTO alembic_version (version_num) VALUES ('0001')"))
     registry = Registry.build()
-    registry.plugins[builder.plugin] = _fake_plugin_info(
-        builder.plugin, builder.package_dir.parent
-    )
+    registry.plugins[builder.plugin] = _fake_plugin_info(builder.plugin, builder.package_dir.parent)
     cfg = build_config(registry, str(engine.url))
     plan = await compute_plan(engine, cfg, registry)
     assert plan.revisions == []  # nothing pending
@@ -84,6 +78,7 @@ async def test_plan_skips_revisions_already_applied(
 def _fake_plugin_info(alias: str, install_path):
     # Minimal stand-in for tests; real PluginInfo comes from Registry.build().
     from hearth.kernel.registry import PluginInfo
+
     return PluginInfo(
         alias=alias,
         package=alias,

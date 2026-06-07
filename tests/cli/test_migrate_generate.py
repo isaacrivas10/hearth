@@ -72,9 +72,7 @@ def test_generate_writes_revision_with_hearth_upgrade_ops(
         '    name: str = ""\n'
     )
     (builder.package_dir / "__init__.py").write_text(
-        f"from {builder.plugin}.entities import User\n"
-        "\n"
-        "__all__ = ['User']\n"
+        f"from {builder.plugin}.entities import User\n\n__all__ = ['User']\n"
     )
 
     # Force the module to import so its Entity subclass body runs and the

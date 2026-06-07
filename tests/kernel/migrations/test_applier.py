@@ -24,7 +24,9 @@ async def engine(tmp_path):
 
 
 async def test_apply_safe_plan_creates_table_and_writes_audit_row(
-    engine, tmp_plugin_with_migrations, example_revision_body,
+    engine,
+    tmp_plugin_with_migrations,
+    example_revision_body,
 ) -> None:
     builder = tmp_plugin_with_migrations
     builder.add_revision(
@@ -35,15 +37,11 @@ async def test_apply_safe_plan_creates_table_and_writes_audit_row(
         ),
     )
     registry = Registry.build()
-    registry.plugins[builder.plugin] = _fake_plugin_info(
-        builder.plugin, builder.package_dir.parent
-    )
+    registry.plugins[builder.plugin] = _fake_plugin_info(builder.plugin, builder.package_dir.parent)
     cfg = build_config(registry, str(engine.url))
     plan = await compute_plan(engine, cfg, registry)
 
-    report = await apply(
-        plan, config=cfg, engine=engine, actor=System(), registry=registry
-    )
+    report = await apply(plan, config=cfg, engine=engine, actor=System(), registry=registry)
     assert report.applied_revisions == [(builder.plugin, "0001")]
     assert report.aborted_at is None
 
@@ -60,7 +58,9 @@ async def test_apply_safe_plan_creates_table_and_writes_audit_row(
 
 
 async def test_apply_destructive_op_without_confirm_aborts(
-    engine, tmp_plugin_with_migrations, example_revision_body,
+    engine,
+    tmp_plugin_with_migrations,
+    example_revision_body,
 ) -> None:
     builder = tmp_plugin_with_migrations
     # 0001 creates the table (safe), 0002 drops a column (destructive).
@@ -93,9 +93,7 @@ async def test_apply_destructive_op_without_confirm_aborts(
         """,
     )
     registry = Registry.build()
-    registry.plugins[builder.plugin] = _fake_plugin_info(
-        builder.plugin, builder.package_dir.parent
-    )
+    registry.plugins[builder.plugin] = _fake_plugin_info(builder.plugin, builder.package_dir.parent)
     cfg = build_config(registry, str(engine.url))
     plan = await compute_plan(engine, cfg, registry)
 
@@ -118,7 +116,9 @@ async def test_apply_destructive_op_without_confirm_aborts(
 
 
 async def test_apply_calls_confirm_for_destructive(
-    engine, tmp_plugin_with_migrations, example_revision_body,
+    engine,
+    tmp_plugin_with_migrations,
+    example_revision_body,
 ) -> None:
     builder = tmp_plugin_with_migrations
     builder.add_revision(
@@ -147,9 +147,7 @@ async def test_apply_calls_confirm_for_destructive(
         """,
     )
     registry = Registry.build()
-    registry.plugins[builder.plugin] = _fake_plugin_info(
-        builder.plugin, builder.package_dir.parent
-    )
+    registry.plugins[builder.plugin] = _fake_plugin_info(builder.plugin, builder.package_dir.parent)
     cfg = build_config(registry, str(engine.url))
     plan = await compute_plan(engine, cfg, registry)
 
@@ -175,6 +173,7 @@ async def test_apply_calls_confirm_for_destructive(
 def _fake_plugin_info(alias: str, install_path):
     # Minimal stand-in for tests; real PluginInfo comes from Registry.build().
     from hearth.kernel.registry import PluginInfo
+
     return PluginInfo(
         alias=alias,
         package=alias,

@@ -62,16 +62,12 @@ def test_classify_alter_column_nullable_to_true_is_safe() -> None:
 
 
 def test_classify_alter_column_type_widen_is_safe() -> None:
-    op = aop.AlterColumnOp(
-        "user", "age", modify_type=sa.BigInteger(), existing_type=sa.Integer()
-    )
+    op = aop.AlterColumnOp("user", "age", modify_type=sa.BigInteger(), existing_type=sa.Integer())
     assert classify(op) == "safe"
 
 
 def test_classify_alter_column_type_narrow_is_destructive() -> None:
-    op = aop.AlterColumnOp(
-        "user", "age", modify_type=sa.Integer(), existing_type=sa.BigInteger()
-    )
+    op = aop.AlterColumnOp("user", "age", modify_type=sa.Integer(), existing_type=sa.BigInteger())
     assert classify(op) == "destructive"
 
 

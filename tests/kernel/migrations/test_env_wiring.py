@@ -47,7 +47,9 @@ async def test_alembic_upgrade_runs_through_env_py(
         cfg = build_config(registry, str(engine.url))
         # Sync invocation — alembic uses sync drivers internally.
         await asyncio.to_thread(
-            alembic_command.upgrade, cfg, f"{builder.plugin}@head"  # type: ignore[attr-defined]
+            alembic_command.upgrade,
+            cfg,
+            f"{builder.plugin}@head",  # type: ignore[attr-defined]
         )
 
         async with engine.connect() as conn:

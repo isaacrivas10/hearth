@@ -30,7 +30,10 @@ def _setup_boot_engine_and_registry(tmp_path, builder):
 
 
 async def test_off_does_nothing_even_with_pending(
-    tmp_path, monkeypatch, tmp_plugin_with_migrations, example_revision_body,
+    tmp_path,
+    monkeypatch,
+    tmp_plugin_with_migrations,
+    example_revision_body,
 ) -> None:
     monkeypatch.setenv("HEARTH_DB_MIGRATE", "off")
     builder = tmp_plugin_with_migrations
@@ -38,7 +41,10 @@ async def test_off_does_nothing_even_with_pending(
         revision="0001",
         down_revision=None,
         body=example_revision_body.format(
-            revision="0001", down_revision=None, branch=builder.plugin, table="t",
+            revision="0001",
+            down_revision=None,
+            branch=builder.plugin,
+            table="t",
         ),
     )
     engine, registry = _setup_boot_engine_and_registry(tmp_path, builder)
@@ -50,7 +56,10 @@ async def test_off_does_nothing_even_with_pending(
 
 
 async def test_strict_refuses_when_pending(
-    tmp_path, monkeypatch, tmp_plugin_with_migrations, example_revision_body,
+    tmp_path,
+    monkeypatch,
+    tmp_plugin_with_migrations,
+    example_revision_body,
 ) -> None:
     monkeypatch.setenv("HEARTH_DB_MIGRATE", "strict")
     builder = tmp_plugin_with_migrations
@@ -58,7 +67,10 @@ async def test_strict_refuses_when_pending(
         revision="0001",
         down_revision=None,
         body=example_revision_body.format(
-            revision="0001", down_revision=None, branch=builder.plugin, table="t",
+            revision="0001",
+            down_revision=None,
+            branch=builder.plugin,
+            table="t",
         ),
     )
     engine, registry = _setup_boot_engine_and_registry(tmp_path, builder)
@@ -70,7 +82,10 @@ async def test_strict_refuses_when_pending(
 
 
 async def test_safe_auto_applies_when_only_safe(
-    tmp_path, monkeypatch, tmp_plugin_with_migrations, example_revision_body,
+    tmp_path,
+    monkeypatch,
+    tmp_plugin_with_migrations,
+    example_revision_body,
 ) -> None:
     monkeypatch.setenv("HEARTH_DB_MIGRATE", "safe")
     builder = tmp_plugin_with_migrations
@@ -78,17 +93,22 @@ async def test_safe_auto_applies_when_only_safe(
         revision="0001",
         down_revision=None,
         body=example_revision_body.format(
-            revision="0001", down_revision=None, branch=builder.plugin, table="t",
+            revision="0001",
+            down_revision=None,
+            branch=builder.plugin,
+            table="t",
         ),
     )
     engine, registry = _setup_boot_engine_and_registry(tmp_path, builder)
     try:
         async with engine.begin() as conn:
             from hearth.kernel.migrations.audit_log import SCHEMA_LOG_METADATA
+
             await conn.run_sync(SCHEMA_LOG_METADATA.create_all)
         await enforce_boot_policy(engine, registry)
         # Assert revision was applied (table exists).
         import sqlalchemy as sa
+
         async with engine.connect() as conn:
             names = await conn.run_sync(lambda s: set(sa.inspect(s).get_table_names()))
         assert "t" in names
@@ -97,7 +117,9 @@ async def test_safe_auto_applies_when_only_safe(
 
 
 async def test_safe_refuses_when_destructive_pending(
-    tmp_path, monkeypatch, tmp_plugin_with_migrations,
+    tmp_path,
+    monkeypatch,
+    tmp_plugin_with_migrations,
 ) -> None:
     monkeypatch.setenv("HEARTH_DB_MIGRATE", "safe")
     builder = tmp_plugin_with_migrations
@@ -132,5 +154,6 @@ async def test_safe_refuses_when_destructive_pending(
 def test_invalid_value_raises_at_read(monkeypatch) -> None:
     monkeypatch.setenv("HEARTH_DB_MIGRATE", "bogus")
     from hearth.kernel.migrations.boot import _read_policy
+
     with pytest.raises(ValueError):
         _read_policy()

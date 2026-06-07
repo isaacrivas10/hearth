@@ -31,6 +31,4 @@ def test_build_config_sets_version_locations_per_plugin(tmp_path: Path) -> None:
     parts = [p.strip() for p in locations.split(",") if p.strip()]
     assert len(parts) <= len(registry.plugins)
     for part in parts:
-        assert part.endswith("/migrations"), (
-            f"version_location should point at migrations/: {part}"
-        )
+        assert part.endswith("/migrations"), f"version_location should point at migrations/: {part}"

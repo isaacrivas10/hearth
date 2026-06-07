@@ -40,7 +40,8 @@ async def test_no_orphans_when_alembic_and_log_in_sync(
     )
     registry = Registry.build()
     registry.plugins[builder.plugin] = _fake_plugin_info(
-        builder.plugin, builder.package_dir.parent,
+        builder.plugin,
+        builder.package_dir.parent,
     )
     cfg = build_config(registry, str(engine.url))
     plan = await compute_plan(engine, cfg, registry)
@@ -51,7 +52,9 @@ async def test_no_orphans_when_alembic_and_log_in_sync(
 
 
 async def test_orphan_when_alembic_advanced_but_audit_missing(
-    engine, tmp_plugin_with_migrations, example_revision_body,
+    engine,
+    tmp_plugin_with_migrations,
+    example_revision_body,
 ) -> None:
     builder = tmp_plugin_with_migrations
     builder.add_revision(
@@ -66,7 +69,8 @@ async def test_orphan_when_alembic_advanced_but_audit_missing(
     )
     registry = Registry.build()
     registry.plugins[builder.plugin] = _fake_plugin_info(
-        builder.plugin, builder.package_dir.parent,
+        builder.plugin,
+        builder.package_dir.parent,
     )
     cfg = build_config(registry, str(engine.url))
     plan = await compute_plan(engine, cfg, registry)
@@ -80,7 +84,8 @@ async def test_orphan_when_alembic_advanced_but_audit_missing(
 
 
 async def test_recovery_re_runs_data_upgrade_for_orphans(
-    engine, tmp_plugin_with_migrations,
+    engine,
+    tmp_plugin_with_migrations,
 ) -> None:
     builder = tmp_plugin_with_migrations
     builder.add_revision(
@@ -118,7 +123,8 @@ async def test_recovery_re_runs_data_upgrade_for_orphans(
     )
     registry = Registry.build()
     registry.plugins[builder.plugin] = _fake_plugin_info(
-        builder.plugin, builder.package_dir.parent,
+        builder.plugin,
+        builder.package_dir.parent,
     )
     cfg = build_config(registry, str(engine.url))
     plan = await compute_plan(engine, cfg, registry)
@@ -147,6 +153,7 @@ async def test_recovery_re_runs_data_upgrade_for_orphans(
 def _fake_plugin_info(alias: str, install_path):
     # Minimal stand-in for tests; real PluginInfo comes from Registry.build().
     from hearth.kernel.registry import PluginInfo
+
     return PluginInfo(
         alias=alias,
         package=alias,

@@ -75,7 +75,9 @@ def _fake_plugin_info(alias: str, install_path, entities: list[type]):
 
 
 async def test_adopt_stamps_head_when_tables_match_declared_schema(
-    engine, tmp_plugin_with_migrations, example_revision_body,
+    engine,
+    tmp_plugin_with_migrations,
+    example_revision_body,
 ) -> None:
     """Simulate the legacy `db init` path: tables already exist, no
     `alembic_version` row. After `apply()`, the head should be stamped
@@ -85,7 +87,10 @@ async def test_adopt_stamps_head_when_tables_match_declared_schema(
         revision="0001",
         down_revision=None,
         body=example_revision_body.format(
-            revision="0001", down_revision=None, branch=builder.plugin, table="widgets",
+            revision="0001",
+            down_revision=None,
+            branch=builder.plugin,
+            table="widgets",
         ),
     )
 
@@ -98,7 +103,9 @@ async def test_adopt_stamps_head_when_tables_match_declared_schema(
 
     registry = Registry.build()
     registry.plugins[builder.plugin] = _fake_plugin_info(
-        builder.plugin, builder.package_dir.parent, entities=[entity_stub],
+        builder.plugin,
+        builder.package_dir.parent,
+        entities=[entity_stub],
     )
     cfg = build_config(registry, str(engine.url))
 
@@ -110,7 +117,11 @@ async def test_adopt_stamps_head_when_tables_match_declared_schema(
     ]
 
     report = await apply(
-        plan, config=cfg, engine=engine, actor=System(), registry=registry,
+        plan,
+        config=cfg,
+        engine=engine,
+        actor=System(),
+        registry=registry,
     )
 
     # Adoption fired; revision was NOT re-applied.
@@ -134,7 +145,9 @@ async def test_adopt_stamps_head_when_tables_match_declared_schema(
 
 
 async def test_adopt_raises_when_live_schema_drifts_from_declared(
-    engine, tmp_plugin_with_migrations, example_revision_body,
+    engine,
+    tmp_plugin_with_migrations,
+    example_revision_body,
 ) -> None:
     """If the live table is missing a declared column (structural drift),
     `adopt_if_clean` refuses with `AdoptionDriftDetected`."""
@@ -143,7 +156,10 @@ async def test_adopt_raises_when_live_schema_drifts_from_declared(
         revision="0001",
         down_revision=None,
         body=example_revision_body.format(
-            revision="0001", down_revision=None, branch=builder.plugin, table="widgets",
+            revision="0001",
+            down_revision=None,
+            branch=builder.plugin,
+            table="widgets",
         ),
     )
 
@@ -161,19 +177,26 @@ async def test_adopt_raises_when_live_schema_drifts_from_declared(
 
     registry = Registry.build()
     registry.plugins[builder.plugin] = _fake_plugin_info(
-        builder.plugin, builder.package_dir.parent, entities=[entity_stub],
+        builder.plugin,
+        builder.package_dir.parent,
+        entities=[entity_stub],
     )
     cfg = build_config(registry, str(engine.url))
 
     with pytest.raises(AdoptionDriftDetected) as excinfo:
         await adopt_if_clean(
-            engine, cfg, registry, applied_by_actor_id="system:adopt",
+            engine,
+            cfg,
+            registry,
+            applied_by_actor_id="system:adopt",
         )
     assert "widgets" in str(excinfo.value) or builder.plugin in str(excinfo.value)
 
 
 async def test_adopt_skips_plugins_already_tracked_by_alembic(
-    engine, tmp_plugin_with_migrations, example_revision_body,
+    engine,
+    tmp_plugin_with_migrations,
+    example_revision_body,
 ) -> None:
     """A plugin whose `alembic_version` row already exists is left alone."""
     builder = tmp_plugin_with_migrations
@@ -181,14 +204,19 @@ async def test_adopt_skips_plugins_already_tracked_by_alembic(
         revision="0001",
         down_revision=None,
         body=example_revision_body.format(
-            revision="0001", down_revision=None, branch=builder.plugin, table="widgets",
+            revision="0001",
+            down_revision=None,
+            branch=builder.plugin,
+            table="widgets",
         ),
     )
     entity_stub = _make_widgets_entity_stub()
 
     registry = Registry.build()
     registry.plugins[builder.plugin] = _fake_plugin_info(
-        builder.plugin, builder.package_dir.parent, entities=[entity_stub],
+        builder.plugin,
+        builder.package_dir.parent,
+        entities=[entity_stub],
     )
     cfg = build_config(registry, str(engine.url))
 
@@ -196,7 +224,11 @@ async def test_adopt_skips_plugins_already_tracked_by_alembic(
     # row exists.
     plan = await compute_plan(engine, cfg, registry)
     first_report = await apply(
-        plan, config=cfg, engine=engine, actor=System(), registry=registry,
+        plan,
+        config=cfg,
+        engine=engine,
+        actor=System(),
+        registry=registry,
     )
     assert first_report.adopted == []
     assert first_report.applied_revisions == [(builder.plugin, "0001")]
@@ -204,7 +236,11 @@ async def test_adopt_skips_plugins_already_tracked_by_alembic(
     # Second apply: no plan revisions, nothing to adopt, nothing to log.
     plan2 = await compute_plan(engine, cfg, registry)
     second_report = await apply(
-        plan2, config=cfg, engine=engine, actor=System(), registry=registry,
+        plan2,
+        config=cfg,
+        engine=engine,
+        actor=System(),
+        registry=registry,
     )
     assert second_report.adopted == []
     assert second_report.applied_revisions == []

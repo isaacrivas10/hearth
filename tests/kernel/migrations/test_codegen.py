@@ -38,7 +38,7 @@ def test_emit_op_summary_lines_escapes_special_chars() -> None:
     must round-trip them through a valid Python literal so the generated
     revision file parses cleanly.
     """
-    op = aop.DropColumnOp('table "weird"', 'col\\with\nnewline')
+    op = aop.DropColumnOp('table "weird"', "col\\with\nnewline")
     # Force a description with a double-quote via the public path: monkeypatch
     # `_describe` to return our payload, since the helper builds a canonical
     # `KIND table.col` string by default.
@@ -75,7 +75,8 @@ def test_emit_op_summary_lines_escapes_special_chars() -> None:
 
 def test_post_process_inserts_lists_and_stub(tmp_path: Path) -> None:
     f = tmp_path / "0001_test.py"
-    f.write_text(textwrap.dedent("""\
+    f.write_text(
+        textwrap.dedent("""\
         \"\"\"test rev\"\"\"
         from alembic import op
         import sqlalchemy as sa
@@ -92,12 +93,11 @@ def test_post_process_inserts_lists_and_stub(tmp_path: Path) -> None:
 
         def downgrade():
             op.drop_table("x")
-    """))
+    """)
+    )
     post_process_generated_file(
         f,
-        upgrade_ops=[
-            aop.CreateTableOp("x", [sa.Column("id", sa.Integer(), primary_key=True)])
-        ],
+        upgrade_ops=[aop.CreateTableOp("x", [sa.Column("id", sa.Integer(), primary_key=True)])],
         downgrade_ops=[aop.DropTableOp("x")],
     )
     out = f.read_text()

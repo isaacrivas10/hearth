@@ -116,7 +116,4 @@ def test_check_fails_when_data_upgrade_present_but_opsummary_missing(
     runner = CliRunner()
     result = runner.invoke(app, ["migrate", "check", builder.plugin])  # type: ignore[attr-defined]
     assert result.exit_code == 1
-    assert (
-        "defines data_upgrade but HEARTH_UPGRADE_OPS has no DataMigration"
-        in result.output
-    )
+    assert "defines data_upgrade but HEARTH_UPGRADE_OPS has no DataMigration" in result.output
