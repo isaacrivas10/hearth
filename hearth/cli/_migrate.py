@@ -73,9 +73,7 @@ async def _generate_impl(plugin: str, refresh: bool) -> None:
     # so we collect the richer `MigrationScript` here for post-processing.
     captured: list[MigrationScript] = []
 
-    def _capture(
-        _context: object, _revision: object, directives: list[MigrationScript]
-    ) -> None:
+    def _capture(_context: object, _revision: object, directives: list[MigrationScript]) -> None:
         captured.extend(directives)
 
     try:

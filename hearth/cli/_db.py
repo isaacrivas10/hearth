@@ -133,8 +133,7 @@ async def _plan_impl(url: str) -> None:
         if plan.has_destructive:
             typer.echo("")
             typer.echo(
-                "Plan contains destructive operations — "
-                "will require interactive confirmation."
+                "Plan contains destructive operations — will require interactive confirmation."
             )
     finally:
         await engine.dispose()
@@ -143,9 +142,7 @@ async def _plan_impl(url: str) -> None:
 @db_app.command("migrate")
 @_wrap_command
 def migrate_cmd(
-    dry_run: bool = typer.Option(
-        False, "--dry-run", help="Same as `plan`; show without applying."
-    ),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Same as `plan`; show without applying."),
 ) -> None:
     """Apply pending migrations. Destructive ops prompt interactively."""
     url = _require_database_url()

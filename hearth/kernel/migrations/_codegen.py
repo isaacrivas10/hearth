@@ -26,9 +26,7 @@ def emit_op_summary_lines(ops: Iterable[MigrateOperation], variable_name: str) -
         # Use `!r` (repr) so descriptions / kinds that contain quotes,
         # backslashes, or newlines (e.g. `DROP TABLE "users"`) stay valid
         # Python literals in the generated revision file.
-        lines.append(
-            f"    OpSummary(kind={kind!r}, desc={desc!r}, destructive={destructive}),"
-        )
+        lines.append(f"    OpSummary(kind={kind!r}, desc={desc!r}, destructive={destructive}),")
     lines.append("]")
     return "\n".join(lines)
 
@@ -37,15 +35,13 @@ def _describe(op: MigrateOperation) -> str:
     """Human description for plan output and audit log."""
     kind = type(op).__name__.removesuffix("Op").upper()
     table = getattr(op, "table_name", None) or getattr(op, "name", "")
-    column = getattr(op, "column_name", None) or getattr(
-        getattr(op, "column", None), "name", ""
-    )
+    column = getattr(op, "column_name", None) or getattr(getattr(op, "column", None), "name", "")
     if column:
         return f"{kind} {table}.{column}".strip()
     return f"{kind} {table}".strip()
 
 
-DATA_HOOK_STUB = '''
+DATA_HOOK_STUB = """
 # Optional: define data_upgrade / data_downgrade to seed or migrate data
 # using the kernel's UnitOfWork. The kernel runs them in a UoW scoped to
 # PluginActor("<plugin>"). Event emission is disabled for the data UoW.
@@ -66,7 +62,7 @@ DATA_HOOK_STUB = '''
 #
 # async def data_downgrade(uow) -> None:
 #     ...
-'''
+"""
 
 
 def post_process_generated_file(

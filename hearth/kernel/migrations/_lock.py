@@ -116,10 +116,7 @@ async def _acquire_sqlite(engine: AsyncEngine, timeout: float) -> AsyncGenerator
             # has it.
             with contextlib.suppress(OperationalError):
                 await conn.execute(
-                    sa.text(
-                        "ALTER TABLE _hearth_migration_lock "
-                        "ADD COLUMN created_at TIMESTAMP"
-                    )
+                    sa.text("ALTER TABLE _hearth_migration_lock ADD COLUMN created_at TIMESTAMP")
                 )
             await conn.commit()
         except OperationalError as err:
@@ -128,9 +125,7 @@ async def _acquire_sqlite(engine: AsyncEngine, timeout: float) -> AsyncGenerator
             ) from err
 
         stale_seconds = float(
-            os.environ.get(
-                "HEARTH_DB_MIGRATE_LOCK_STALE_SECONDS", _DEFAULT_LOCK_STALE_SECONDS
-            )
+            os.environ.get("HEARTH_DB_MIGRATE_LOCK_STALE_SECONDS", _DEFAULT_LOCK_STALE_SECONDS)
         )
 
         deadline = time.monotonic() + timeout
@@ -138,8 +133,7 @@ async def _acquire_sqlite(engine: AsyncEngine, timeout: float) -> AsyncGenerator
             try:
                 await conn.execute(
                     sa.text(
-                        "INSERT INTO _hearth_migration_lock (id, created_at) "
-                        "VALUES (1, :now)"
+                        "INSERT INTO _hearth_migration_lock (id, created_at) VALUES (1, :now)"
                     ).bindparams(now=datetime.now(UTC))
                 )
                 await conn.commit()
@@ -166,9 +160,7 @@ async def _acquire_sqlite(engine: AsyncEngine, timeout: float) -> AsyncGenerator
             yield
         finally:
             try:
-                await conn.execute(
-                    sa.text("DELETE FROM _hearth_migration_lock WHERE id = 1")
-                )
+                await conn.execute(sa.text("DELETE FROM _hearth_migration_lock WHERE id = 1"))
                 await conn.commit()
             except Exception:
                 # Best-effort release; surface the original error if any.
@@ -222,7 +214,5 @@ async def _evict_stale_lock_row(engine: AsyncEngine, stale_seconds: float) -> bo
         # Either no usable timestamp (predates self-healing) or aged out —
         # both treated as stale. Only report success if our DELETE actually
         # removed the row (another evictor may have beaten us to it).
-        result = await conn.execute(
-            sa.text("DELETE FROM _hearth_migration_lock WHERE id = 1")
-        )
+        result = await conn.execute(sa.text("DELETE FROM _hearth_migration_lock WHERE id = 1"))
         return result.rowcount > 0

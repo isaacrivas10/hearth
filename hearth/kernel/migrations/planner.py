@@ -57,9 +57,7 @@ class MigrationPlan:
         return "\n".join(lines)
 
 
-async def compute_plan(
-    engine: AsyncEngine, config: Config, registry: Registry
-) -> MigrationPlan:
+async def compute_plan(engine: AsyncEngine, config: Config, registry: Registry) -> MigrationPlan:
     """Walk each plugin's pending revisions and produce a MigrationPlan."""
     revisions: list[PlannedRevision] = []
     script = ScriptDirectory.from_config(config)
@@ -100,9 +98,7 @@ async def _read_alembic_version_per_branch(
     belongs to.
     """
     async with engine.connect() as conn:
-        exists = await conn.run_sync(
-            lambda s: "alembic_version" in sa.inspect(s).get_table_names()
-        )
+        exists = await conn.run_sync(lambda s: "alembic_version" in sa.inspect(s).get_table_names())
         if not exists:
             return {}
         result = await conn.execute(sa.text("SELECT version_num FROM alembic_version"))
@@ -117,7 +113,7 @@ async def _read_alembic_version_per_branch(
             # know about (orphaned by a plugin uninstall, say). Skip; recovery
             # paths handle that case separately.
             continue
-        for label in (sc.branch_labels or []):
+        for label in sc.branch_labels or []:
             head_by_branch[label] = rev
     return head_by_branch
 
@@ -133,9 +129,7 @@ def _branch_head(script: ScriptDirectory, branch: str) -> str | None:
     return sc.revision
 
 
-def _walk_pending(
-    script: ScriptDirectory, current: str | None, head: str
-) -> Iterator[Any]:
+def _walk_pending(script: ScriptDirectory, current: str | None, head: str) -> Iterator[Any]:
     """Yield Alembic Script objects from `current` (exclusive) to `head` (inclusive)."""
     revisions = list(script.walk_revisions(base=current or "base", head=head))
     # walk_revisions yields newest first; we want oldest first to apply in order.
@@ -146,9 +140,7 @@ def _walk_pending(
     return reversed(revisions)
 
 
-def _read_hearth_upgrade_ops(
-    module: ModuleType, plugin: str, revision_id: str
-) -> list[OpSummary]:
+def _read_hearth_upgrade_ops(module: ModuleType, plugin: str, revision_id: str) -> list[OpSummary]:
     ops = getattr(module, "HEARTH_UPGRADE_OPS", None)
     if ops is None:
         raise MissingClassificationArtifact(

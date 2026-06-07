@@ -92,14 +92,10 @@ async def adopt_if_clean(
     script = ScriptDirectory.from_config(config)
 
     async with engine.connect() as conn:
-        live_tables = await conn.run_sync(
-            lambda s: set(sa.inspect(s).get_table_names())
-        )
+        live_tables = await conn.run_sync(lambda s: set(sa.inspect(s).get_table_names()))
         applied_revisions: set[str] = set()
         if "alembic_version" in live_tables:
-            result = await conn.execute(
-                sa.text("SELECT version_num FROM alembic_version")
-            )
+            result = await conn.execute(sa.text("SELECT version_num FROM alembic_version"))
             applied_revisions = {row[0] for row in result}
 
     ordered_aliases = registry.full_plugin_order()

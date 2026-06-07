@@ -20,9 +20,7 @@ from hearth.unit_of_work import UnitOfWork
 
 
 @contextlib.asynccontextmanager
-async def open_data_uow(
-    engine: AsyncEngine, *, plugin: str
-) -> AsyncGenerator[UnitOfWork]:
+async def open_data_uow(engine: AsyncEngine, *, plugin: str) -> AsyncGenerator[UnitOfWork]:
     """Yield a UoW with the migration actor and event emission disabled.
 
     Suppression mechanism: ``uow.emit`` is replaced with a no-op. The

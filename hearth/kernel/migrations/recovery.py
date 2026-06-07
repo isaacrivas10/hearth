@@ -28,23 +28,20 @@ class OrphanedRevision:
 
 
 async def find_orphaned_revisions(
-    engine: AsyncEngine, config: Config, registry: Registry,
+    engine: AsyncEngine,
+    config: Config,
+    registry: Registry,
 ) -> list[OrphanedRevision]:
     """Return revisions whose Alembic head is recorded but whose audit row
     is missing. Ordered (plugin, revision_id)."""
     script = ScriptDirectory.from_config(config)
 
     async with engine.connect() as conn:
-        exists = await conn.run_sync(
-            lambda s: "alembic_version" in sa.inspect(s).get_table_names()
-        )
+        exists = await conn.run_sync(lambda s: "alembic_version" in sa.inspect(s).get_table_names())
         if not exists:
             return []
         applied = [
-            row[0]
-            for row in await conn.execute(
-                sa.text("SELECT version_num FROM alembic_version")
-            )
+            row[0] for row in await conn.execute(sa.text("SELECT version_num FROM alembic_version"))
         ]
         logged = {
             (row.plugin, row.revision_id)
@@ -61,13 +58,11 @@ async def find_orphaned_revisions(
             # Alembic head points to a revision the script directory no longer
             # knows about (e.g. plugin uninstalled). Not recoverable from here.
             continue
-        for label in (sc.branch_labels or []):
+        for label in sc.branch_labels or []:
             if label not in registry.plugins:
                 continue
             if (label, rev_id) not in logged:
                 orphans.append(
-                    OrphanedRevision(
-                        plugin=label, revision_id=rev_id, description=sc.doc or ""
-                    )
+                    OrphanedRevision(plugin=label, revision_id=rev_id, description=sc.doc or "")
                 )
     return sorted(orphans, key=lambda o: (o.plugin, o.revision_id))

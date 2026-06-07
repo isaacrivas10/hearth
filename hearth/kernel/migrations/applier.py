@@ -127,8 +127,7 @@ async def apply(
                     )
             except Exception as err:
                 raise PartialCommitUnrecoverable(
-                    f"failed to recover orphaned revision "
-                    f"{orphan.plugin}:{orphan.revision_id}"
+                    f"failed to recover orphaned revision {orphan.plugin}:{orphan.revision_id}"
                 ) from err
 
         for revision in plan.revisions:
@@ -182,9 +181,7 @@ async def apply(
     return report
 
 
-async def _detect_plugin_downgrade(
-    engine: AsyncEngine, config: Config, registry: Registry
-) -> None:
+async def _detect_plugin_downgrade(engine: AsyncEngine, config: Config, registry: Registry) -> None:
     """Raise `PluginDowngradeDetected` if `alembic_version` references a
     revision the installed plugin package no longer ships.
 
@@ -201,16 +198,11 @@ async def _detect_plugin_downgrade(
     """
     script = ScriptDirectory.from_config(config)
     async with engine.connect() as conn:
-        exists = await conn.run_sync(
-            lambda s: "alembic_version" in sa.inspect(s).get_table_names()
-        )
+        exists = await conn.run_sync(lambda s: "alembic_version" in sa.inspect(s).get_table_names())
         if not exists:
             return
         applied_revs = [
-            row[0]
-            for row in await conn.execute(
-                sa.text("SELECT version_num FROM alembic_version")
-            )
+            row[0] for row in await conn.execute(sa.text("SELECT version_num FROM alembic_version"))
         ]
         if not applied_revs:
             return
@@ -283,5 +275,3 @@ def _import_revision_module(config: Config, revision_id: str):
     if sc is None:  # pyright: ignore[reportUnnecessaryComparison]
         raise RuntimeError(f"revision {revision_id} not found in script directory")
     return sc.module
-
-
