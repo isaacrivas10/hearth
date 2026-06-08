@@ -1,0 +1,45 @@
+{#
+  Internal partial: renders form fields from a list[FormField].
+  Receives: fields (list[FormField]), errors (dict[str, str] | undefined)
+  Used by: _autoform.html includes inside modal and action_detail.html
+#}
+{% for field in fields %}
+<div class="form-field">
+    {% if field.input_type == "checkbox" %}
+    <wa-checkbox
+        name="{{ field.name }}"
+        {% if field.default %}checked{% endif %}
+    >{{ field.label }}{% if field.required %} <span aria-hidden="true">*</span>{% endif %}</wa-checkbox>
+
+    {% elif field.input_type == "select" %}
+    <wa-select
+        name="{{ field.name }}"
+        label="{{ field.label }}{% if field.required %} *{% endif %}"
+        {% if field.required %}required{% endif %}
+    >
+        {% if not field.required %}<wa-option value="">—</wa-option>{% endif %}
+        {% for choice in field.choices %}
+        <wa-option value="{{ choice }}"{% if choice == field.default|string %} selected{% endif %}>{{ choice }}</wa-option>
+        {% endfor %}
+    </wa-select>
+
+    {% else %}
+    <wa-input
+        type="{{ field.input_type }}"
+        name="{{ field.name }}"
+        label="{{ field.label }}{% if field.required %} *{% endif %}"
+        {% if field.required %}required{% endif %}
+        {% if field.default is not none %}value="{{ field.default }}"{% endif %}
+        {% for attr, val in field.attrs.items() %}{{ attr }}="{{ val }}" {% endfor %}
+    ></wa-input>
+    {% endif %}
+
+    {% if field.description %}
+    <small class="field-hint">{{ field.description }}</small>
+    {% endif %}
+
+    {% if errors is defined and field.name in errors %}
+    <small class="field-error" role="alert">{{ errors[field.name] }}</small>
+    {% endif %}
+</div>
+{% endfor %}

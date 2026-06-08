@@ -646,3 +646,44 @@ pre,
 .pref-tile.selected .pref-tile-check {
     display: flex;
 }
+
+/* ── wa-card: radius + stacking gap ────────────────────────────────────── */
+wa-card {
+    --border-radius: var(--radius);
+    display: block;
+}
+
+wa-card::part(base) {
+    border-radius: var(--radius);
+}
+
+wa-card+wa-card {
+    margin-top: var(--space-4);
+}
+
+/* ── Notyf toast overrides ──────────────────────────────────────────────── */
+.notyf__toast--success {
+    --notyf-toast-background: var(--color-success);
+}
+
+.notyf__toast--error {
+    --notyf-toast-background: var(--color-danger);
+}
+
+.notyf__toast {
+    font-family: var(--wa-font-family-body, sans-serif);
+    font-size: 0.875rem;
+    border-radius: var(--radius-sm, 5px);
+}
+
+[data-density="compact"] .notyf__toast {
+    padding: var(--space-2, 0.25rem) var(--space-3, 0.5rem);
+    font-size: 0.8rem;
+    min-width: 200px;
+}
+
+[data-density="airy"] .notyf__toast {
+    padding: var(--space-4, 1rem) var(--space-5, 1.5rem);
+    font-size: 0.95rem;
+    min-width: 280px;
+}

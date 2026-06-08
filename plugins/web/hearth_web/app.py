@@ -15,9 +15,10 @@ from starlette.middleware.sessions import SessionMiddleware
 from hearth.kernel._engine import make_async_engine  # pyright: ignore[reportPrivateUsage]
 from hearth.kernel.registry import Registry
 from hearth.kernel.transaction import transaction_factory
+from hearth_web.admin.dispatch import dispatch_router
 from hearth_web.admin.router import ADMIN_NAV, admin_router
 from hearth_web.extensions import WebModule, discover_web_modules
-from hearth_web.rendering import build_jinja_env, build_nav
+from hearth_web.rendering import build_jinja_env, build_nav, build_render_registry
 from hearth_web.security import Forbidden, forbidden_handler
 from hearth_web.sessions import add_csrf_exception_handlers, init_csrf, session_router
 from hearth_web.slots import build_slot_registry
@@ -95,6 +96,7 @@ def create_app(
     override_dir = os.environ.get("HEARTH_WEB_TEMPLATE_DIR")
     app.state.jinja_env = build_jinja_env(resolved_modules, override_dir)
     app.state.slots = build_slot_registry(resolved_modules)
+    app.state.render_registry = build_render_registry(resolved_modules)
     app.state.nav = build_nav(resolved_modules, admin_nav=ADMIN_NAV)
     app.state.brand = {
         "name": os.environ.get("HEARTH_WEB_BRAND_NAME", "Hearth"),
@@ -111,5 +113,6 @@ def create_app(
         return {"status": "ok"}
 
     app.include_router(admin_router)
+    app.include_router(dispatch_router)
 
     return app

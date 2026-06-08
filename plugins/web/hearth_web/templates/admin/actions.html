@@ -1,18 +1,77 @@
-{% extends "admin/base.html" %} {% block title %}Actions - {{ brand.name }}{%
-endblock %} {% block page_content %}
+{% extends "admin/base.html" %}
+{% block title %}Actions - {{ brand.name }}{% endblock %}
+{% block page_content %}
 <header class="page-header">
     <h1>Actions</h1>
 </header>
 
-{% for plugin in plugins %} {% if plugin.actions %}
+{% for entry in plugins_data %}
+{% if entry.actions %}
 <wa-card>
-    <h2 slot="header">{{ plugin.alias }} ({{ plugin.actions|length }})</h2>
-    <div class="wa-cluster">
-        {% for action in plugin.actions %}
-        <wa-tag>{{ action.__name__ }}</wa-tag>
+    <h2 slot="header">{{ entry.alias }} ({{ entry.actions|length }})</h2>
+    <div class="wa-stack">
+        {% for item in entry.actions %}
+        <div class="action-row" style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2) 0;border-bottom:1px solid var(--color-border);">
+            <div style="flex:1">
+                <strong>{{ item.cls.__name__ }}</strong>
+                {% if item.cls.__doc__ %}
+                <small style="display:block;color:var(--color-muted-text)">{{ item.cls.__doc__.strip().split('\n')[0] }}</small>
+                {% endif %}
+            </div>
+            {% if item.fields %}
+            {# Modal variant — action has fields #}
+            <div x-data="{ open: false }">
+                <wa-button size="small" @click="open = true">Run</wa-button>
+                <wa-dialog
+                    :open="open"
+                    @wa-request-close="open = false"
+                    @close-modal.window="open = false"
+                >
+                    <span slot="label">{{ item.cls.__name__ }}</span>
+                    <form
+                        id="action-form-{{ item.cls.__name__ }}"
+                        hx-post="/admin/actions/{{ entry.alias }}/{{ item.cls.__name__ }}"
+                        hx-swap="none"
+                    >
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <div class="wa-stack">
+                            {% with fields=item.fields %}
+                            {% include "admin/_autoform.html" %}
+                            {% endwith %}
+                        </div>
+                    </form>
+                    <div slot="footer" style="display:flex;gap:var(--space-2);">
+                        <wa-button appearance="plain" @click="open = false">Cancel</wa-button>
+                        <wa-button
+                            variant="primary"
+                            type="submit"
+                            form="action-form-{{ item.cls.__name__ }}"
+                        >Run</wa-button>
+                    </div>
+                </wa-dialog>
+            </div>
+            {% else %}
+            {# Button variant — zero-field action #}
+            <form
+                hx-post="/admin/actions/{{ entry.alias }}/{{ item.cls.__name__ }}"
+                hx-swap="none"
+                style="display:inline"
+            >
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <wa-button size="small" type="submit">Run</wa-button>
+            </form>
+            {% endif %}
+            <a href="/admin/actions/{{ entry.alias }}/{{ item.cls.__name__ }}">
+                <wa-button size="small" appearance="plain">Detail</wa-button>
+            </a>
+        </div>
         {% endfor %}
     </div>
 </wa-card>
-{% endif %} {% endfor %} {% if not plugins|selectattr('actions')|list %}
+{% endif %}
+{% endfor %}
+
+{% if not plugins_data or not plugins_data|selectattr('actions')|list %}
 <p>No actions registered.</p>
-{% endif %} {% endblock %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ action_cls.__name__ }} - {{ brand.name }}{% endblock %}
+{% block page_content %}
+<header class="page-header">
+    <h1>{{ action_cls.__name__ }}</h1>
+    <small>Plugin: {{ plugin_alias }}</small>
+</header>
+
+{% if action_cls.__doc__ %}
+<wa-card>
+    <p>{{ action_cls.__doc__.strip() }}</p>
+</wa-card>
+{% endif %}
+
+<wa-card>
+    <h2 slot="header">Execute</h2>
+    <form
+        id="detail-action-form"
+        hx-post="/admin/actions/{{ plugin_alias }}/{{ action_cls.__name__ }}"
+        hx-swap="none"
+    >
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        {% if fields %}
+        <div class="wa-stack" style="margin-bottom:var(--space-4);">
+            {% include "admin/_autoform.html" %}
+        </div>
+        {% else %}
+        <p style="color:var(--color-muted-text)">This action has no parameters.</p>
+        {% endif %}
+        <wa-button type="submit" variant="primary">Run {{ action_cls.__name__ }}</wa-button>
+    </form>
+</wa-card>
+{% endblock %}

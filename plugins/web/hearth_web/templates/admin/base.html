@@ -1,4 +1,9 @@
-{% extends "base.html" %} {% block body %}
+{% extends "base.html" %}
+{% block extra_head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.css">
+<script src="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.js"></script>
+{% endblock %}
+{% block body %}
 <wa-page>
     <header slot="header" class="app-header">
         <a href="/admin" class="brand">
@@ -47,4 +52,7 @@
     </div>
     <main>{% block page_content %}{% endblock %}</main>
 </wa-page>
+{% endblock %}
+{% block extra_scripts %}
+<script src="/static/toasts.js"></script>
 {% endblock %}

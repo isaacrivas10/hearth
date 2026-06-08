@@ -4,7 +4,8 @@ endblock %} {% block page_content %}
     <h1>Events</h1>
 </header>
 
-{% for plugin in plugins %} {% if plugin.events %}
+{# Registered event types by plugin #} {% for plugin in plugins %}{% if
+plugin.events %}
 <wa-card>
     <h2 slot="header">{{ plugin.alias }} ({{ plugin.events|length }})</h2>
     <div class="wa-cluster">
@@ -13,6 +14,139 @@ endblock %} {% block page_content %}
         {% endfor %}
     </div>
 </wa-card>
-{% endif %} {% endfor %} {% if not plugins|selectattr('events')|list %}
+{% endif %}{% endfor %} {% if not plugins|selectattr('events')|list %}
 <p>No events registered.</p>
-{% endif %} {% endblock %}
+{% endif %}
+
+{# Outbox history #}
+<wa-card>
+    <h2 slot="header">Outbox History</h2>
+    <div
+        slot="header-actions"
+        style="display: flex; gap: var(--space-2); align-items: center"
+    >
+        <form method="get" style="display: flex; gap: var(--space-2)">
+            <select
+                name="event_type"
+                onchange="this.form.submit()"
+                style="
+                    font-size: 0.875rem;
+                    padding: var(--space-1) var(--space-2);
+                "
+            >
+                <option value="">All types</option>
+                {% for et in all_event_types %}
+                <option
+                    value="{{ et }}"
+                    {% if et == current_event_type %}selected{% endif %}
+                >
+                    {{ et }}
+                </option>
+                {% endfor %}
+            </select>
+        </form>
+        <small style="color: var(--color-muted-text)"
+            >{{ history.total }} total</small
+        >
+    </div>
+
+    {% if history.rows %}
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem">
+        <thead>
+            <tr
+                style="
+                    text-align: left;
+                    border-bottom: 2px solid var(--color-border);
+                "
+            >
+                <th style="padding: var(--space-2)">Time</th>
+                <th style="padding: var(--space-2)">Event</th>
+                <th style="padding: var(--space-2)">Actor</th>
+                <th style="padding: var(--space-2)">Payload</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in history.rows %}
+            <tr
+                x-data="{ open: false }"
+                style="border-bottom: 1px solid var(--color-border)"
+            >
+                <td
+                    style="
+                        padding: var(--space-2);
+                        white-space: nowrap;
+                        color: var(--color-muted-text);
+                    "
+                >
+                    {{ row.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                </td>
+                <td style="padding: var(--space-2)">
+                    <wa-tag size="small">{{ row.event_type }}</wa-tag>
+                </td>
+                <td
+                    style="
+                        padding: var(--space-2);
+                        color: var(--color-muted-text);
+                    "
+                >
+                    {{ row.actor.kind }}{% if row.actor.id %} · {{
+                    row.actor.id[:8] }}…{% endif %}
+                </td>
+                <td style="padding: var(--space-2)">
+                    <wa-button
+                        size="small"
+                        appearance="plain"
+                        @click="open = !open"
+                    >
+                        <wa-icon
+                            :name="open ? 'chevron-up' : 'chevron-down'"
+                        ></wa-icon>
+                    </wa-button>
+                    <pre
+                        x-show="open"
+                        style="
+                            margin-top: var(--space-2);
+                            font-size: 0.75rem;
+                            background: var(--color-surface-raised);
+                            padding: var(--space-2);
+                            border-radius: var(--radius-sm);
+                            overflow: auto;
+                            max-height: 200px;
+                        "
+                    >
+{{ row.payload | tojson(indent=2) }}</pre
+                    >
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {# Pagination #} {% if history.has_prev or history.has_next %}
+    <div
+        style="
+            display: flex;
+            gap: var(--space-2);
+            justify-content: flex-end;
+            padding-top: var(--space-3);
+        "
+    >
+        {% if history.has_prev %}
+        <a
+            href="?page={{ current_page - 1 }}{% if current_event_type %}&event_type={{ current_event_type }}{% endif %}"
+        >
+            <wa-button size="small" appearance="plain">← Previous</wa-button>
+        </a>
+        {% endif %} {% if history.has_next %}
+        <a
+            href="?page={{ current_page + 1 }}{% if current_event_type %}&event_type={{ current_event_type }}{% endif %}"
+        >
+            <wa-button size="small" appearance="plain">Next →</wa-button>
+        </a>
+        {% endif %}
+    </div>
+    {% endif %} {% else %}
+    <p style="color: var(--color-muted-text)">No events recorded yet.</p>
+    {% endif %}
+</wa-card>
+{% endblock %}

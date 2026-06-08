@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from itertools import groupby
 from operator import attrgetter
 from pathlib import Path
@@ -21,12 +21,83 @@ from jinja2 import (
     select_autoescape,
 )
 
+from markupsafe import Markup
 from hearth import Actor, UnitOfWork
-from hearth_web.extensions import NavItem, WebModule
+from hearth_web.extensions import NavItem, RenderConfig, WebModule
+from hearth_web.admin.autoform import fields_for_action as _fields_for_action
 from hearth_web.security import Check, current_actor, get_check, request_uow
 from hearth_web.slots import make_render_slot
 
 logger = logging.getLogger("hearth_web")
+
+RenderPrimitiveFn = Callable[..., Awaitable[Markup]]
+
+
+def build_render_registry(
+    modules: list[WebModule],
+) -> dict[type, dict[str, RenderConfig]]:
+    registry: dict[type, dict[str, RenderConfig]] = {}
+    for m in modules:
+        for cls, variants in m.render.items():
+            if cls in registry:
+                for variant, config in variants.items():
+                    if variant in registry[cls]:
+                        logger.warning(
+                            "render config conflict: %r variant %r already registered; overwriting",
+                            cls.__name__,
+                            variant,
+                        )
+                    registry[cls][variant] = config
+            else:
+                registry[cls] = dict(variants)
+    return registry
+
+
+def make_render_primitive(
+    registry: dict[type, dict[str, RenderConfig]],
+    check: "Check",
+    env: Environment,
+) -> RenderPrimitiveFn:
+    from hearth.primitives.action import Action
+
+    async def render_primitive(
+        cls_or_instance: type | object,
+        variant: str,
+        **extra_ctx: Any,
+    ) -> Markup:
+        key: type = cls_or_instance if isinstance(cls_or_instance, type) else type(cls_or_instance)
+
+        class_variants = registry.get(key)
+        if class_variants is None:
+            raise KeyError(f"No render config registered for {key.__name__!r}")
+        config = class_variants.get(variant)
+        if config is None:
+            raise KeyError(f"No variant {variant!r} for {key.__name__!r}")
+
+        if config.permission and not await check(config.permission):
+            return Markup("")
+
+        if config.template is None:
+            if not issubclass(key, Action):
+                raise ValueError(
+                    f"RenderConfig.template=None is only valid for Action subclasses; "
+                    f"{key.__name__!r} is not an Action"
+                )
+            fields = _fields_for_action(key, include=config.fields)
+            html = await env.get_template("admin/_autoform.html").render_async(
+                fields=fields,
+                action_cls=key,
+                **extra_ctx,
+            )
+        else:
+            html = await env.get_template(config.template).render_async(
+                obj=cls_or_instance,
+                **extra_ctx,
+            )
+        return Markup(html)
+
+    return render_primitive
+
 
 _ADMIN_TEMPLATES = Path(__file__).parent / "templates"
 
@@ -111,7 +182,9 @@ async def page_context(
 ) -> None:
     env = request.app.state.jinja_env
     render_slot = make_render_slot(request.app.state.slots, uow, actor, check, env)
+    render_primitive = make_render_primitive(request.app.state.render_registry, check, env)
     request.state.render_slot = render_slot
+    request.state.render_primitive = render_primitive
     request.state.check = check
     request.state.actor = actor
     request.state.uow = uow
@@ -131,6 +204,7 @@ async def render(
         "current_actor": request.state.actor,
         "check": request.state.check,
         "render_slot": request.state.render_slot,
+        "render_primitive": request.state.render_primitive,
         "nav": request.state.nav,
         "brand": request.app.state.brand,
     }

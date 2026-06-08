@@ -1,191 +1,168 @@
-{% extends "admin/base.html" %} {% block title %}Schema - {{ brand.name }}{% endblock %} {% block page_content %}
-<header class="page-header">
-    <h1>Schema Diagram</h1>
-    <div class="schema-controls" aria-label="Diagram zoom controls">
-        <wa-button appearance="plain" size="small" id="zoom-in" aria-label="Zoom in" title="Zoom in">
-            <wa-icon name="plus" slot="prefix"></wa-icon>
-        </wa-button>
-        <wa-button appearance="plain" size="small" id="zoom-out" aria-label="Zoom out" title="Zoom out">
-            <wa-icon name="dash" slot="prefix"></wa-icon>
-        </wa-button>
-        <wa-button appearance="plain" size="small" id="zoom-reset" aria-label="Reset zoom" title="Reset zoom">
-            <wa-icon name="arrow-counterclockwise" slot="prefix"></wa-icon>
-        </wa-button>
-        <span class="zoom-level" id="zoom-level" aria-live="polite">100%</span>
-    </div>
-</header>
+{% extends "admin/base.html" %}
+{% block title %}Schema — {{ brand.name }}{% endblock %}
+{% block page_content %}
+<style>
+main {
+    height: calc(100dvh - 56px);
+    overflow: hidden;
+}
+.cy-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+.cy-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    margin-bottom: var(--space-3);
+    color: var(--color-fg);
+}
+.cy-controls wa-button {
+    color: var(--color-fg);
+}
+#cy {
+    flex: 1 1 0;
+    min-height: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    width: 100%;
+}
+</style>
 
-<div class="schema-container" id="schema-container">
-    <pre class="mermaid" id="mermaid-diagram">{{ mermaid }}</pre>
+<div class="cy-wrapper">
+    <div class="cy-controls">
+        <h1 style="font-size:1.4rem;font-weight:600;letter-spacing:-.01em;margin:0;">Schema</h1>
+        <div style="display:flex;align-items:center;gap:var(--space-2);">
+            <span id="cy-zoom-level" style="font-family:var(--wa-font-family-code);font-size:0.75rem;color:var(--color-muted);min-width:4ch;text-align:right;">100%</span>
+            <wa-button appearance="plain" size="small" id="cy-zoom-in" title="Zoom in"><wa-icon name="plus"></wa-icon></wa-button>
+            <wa-button appearance="plain" size="small" id="cy-zoom-out" title="Zoom out"><wa-icon name="minus"></wa-icon></wa-button>
+            <wa-button appearance="plain" size="small" id="cy-fit" title="Fit to screen"><wa-icon name="expand"></wa-icon></wa-button>
+            <wa-button appearance="plain" size="small" id="cy-reset" title="Reset zoom"><wa-icon name="rotate-left"></wa-icon></wa-button>
+        </div>
+    </div>
+
+    <div id="cy"></div>
 </div>
 
-<script src="/static/vendor/mermaid.min.js" defer></script>
+<div id="cy-info-panel" style="display:none;position:fixed;bottom:var(--space-4);left:calc(var(--space-4) + 240px);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius);padding:var(--space-3) var(--space-4);min-width:200px;max-width:300px;box-shadow:var(--shadow-sm);z-index:100;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-2);">
+        <strong id="cy-info-title" style="font-size:0.9rem;"></strong>
+        <wa-button appearance="plain" size="small" id="cy-info-close" style="color:var(--color-fg);"><wa-icon name="x"></wa-icon></wa-button>
+    </div>
+    <ul id="cy-info-columns" style="margin:0;padding:0;list-style:none;font-family:var(--wa-font-family-code);font-size:0.78rem;display:flex;flex-direction:column;gap:2px;"></ul>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.2/cytoscape.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.min.js"></script>
 <script>
-    // Initialize zoom/pan when DOM is ready
-    // NOTE: In headless Chrome, document.readyState is "complete" from the start,
-    // so we cannot rely on it. Use DOMContentLoaded or setTimeout fallback.
-    function initZoom() {
-        const container = document.getElementById('schema-container');
-        const diagram = document.getElementById('mermaid-diagram');
-        const zoomIn = document.getElementById('zoom-in');
-        const zoomOut = document.getElementById('zoom-out');
-        const zoomReset = document.getElementById('zoom-reset');
-        const zoomLevel = document.getElementById('zoom-level');
+(function () {
+    var graphData = {{ graph | tojson }};
 
-        if (!container || !diagram) return;
+    var style = getComputedStyle(document.documentElement);
+    function tok(name) { return style.getPropertyValue(name).trim(); }
 
-        // State
-        let scale = 1;
-        let translateX = 0;
-        let translateY = 0;
-        let isPanning = false;
-        let startX = 0;
-        let startY = 0;
-        const MIN_SCALE = 0.2;
-        const MAX_SCALE = 3;
-        const SCALE_STEP = 0.2;
+    cytoscape.use(cytoscapeDagre);
 
-        function updateTransform() {
-            diagram.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
-            diagram.style.transformOrigin = '0 0';
-            zoomLevel.textContent = Math.round(scale * 100) + '%';
-        }
+    var cy = cytoscape({
+        container: document.getElementById('cy'),
+        elements: graphData,
+        layout: {
+            name: 'dagre',
+            rankDir: 'LR',
+            nodeSep: 60,
+            rankSep: 120,
+            padding: 40,
+        },
+        style: [
+            {
+                selector: 'node',
+                style: {
+                    'shape': 'rectangle',
+                    'label': 'data(label)',
+                    'background-color': tok('--color-surface') || '#f0f0ee',
+                    'border-width': 1,
+                    'border-color': tok('--color-border') || '#d4d4d2',
+                    'color': tok('--color-fg') || '#1a1a1a',
+                    'text-valign': 'center',
+                    'text-halign': 'center',
+                    'font-size': '13px',
+                    'font-weight': '600',
+                    'padding': '12px',
+                    'min-width': '120px',
+                },
+            },
+            {
+                selector: 'node:selected',
+                style: {
+                    'border-color': tok('--color-accent') || '#b84a14',
+                    'border-width': 2,
+                },
+            },
+            {
+                selector: 'edge',
+                style: {
+                    'label': 'data(label)',
+                    'curve-style': 'bezier',
+                    'target-arrow-shape': 'triangle',
+                    'arrow-scale': 0.8,
+                    'font-size': '10px',
+                    'color': tok('--color-muted') || '#636363',
+                    'line-color': tok('--color-border') || '#d4d4d2',
+                    'target-arrow-color': tok('--color-border') || '#d4d4d2',
+                    'text-background-color': tok('--color-bg') || '#f8f8f7',
+                    'text-background-opacity': 1,
+                    'text-background-padding': '2px',
+                },
+            },
+        ],
+    });
 
-        function zoom(delta, centerX, centerY) {
-            const newScale = Math.min(Math.max(scale + delta, MIN_SCALE), MAX_SCALE);
-            if (newScale === scale) return;
+    cy.fit(undefined, 40);
 
-            // Adjust translation to zoom toward the center point
-            const rect = container.getBoundingClientRect();
-            const offsetX = centerX - rect.left;
-            const offsetY = centerY - rect.top;
-
-            translateX = offsetX - (offsetX - translateX) * (newScale / scale);
-            translateY = offsetY - (offsetY - translateY) * (newScale / scale);
-            scale = newScale;
-            updateTransform();
-        }
-
-        function resetZoom() {
-            scale = 1;
-            translateX = 0;
-            translateY = 0;
-            updateTransform();
-        }
-
-        // Mouse wheel zoom (Ctrl/Cmd + scroll)
-        container.addEventListener('wheel', function(e) {
-            if (e.ctrlKey || e.metaKey) {
-                e.preventDefault();
-                zoom(e.deltaY > 0 ? -SCALE_STEP : SCALE_STEP, e.clientX, e.clientY);
-            }
-        }, { passive: false });
-
-        // Pan with mouse drag
-        container.addEventListener('mousedown', function(e) {
-            if (e.target.closest('.schema-controls') || e.target.closest('button')) return;
-            if (e.button !== 0) return;
-
-            isPanning = true;
-            startX = e.clientX - translateX;
-            startY = e.clientY - translateY;
-            container.style.cursor = 'grabbing';
-            e.preventDefault();
-        });
-
-        window.addEventListener('mousemove', function(e) {
-            if (!isPanning) return;
-            translateX = e.clientX - startX;
-            translateY = e.clientY - startY;
-            updateTransform();
-        });
-
-        window.addEventListener('mouseup', function() {
-            if (isPanning) {
-                isPanning = false;
-                container.style.cursor = '';
-            }
-        });
-
-        // Touch support for mobile (pan + pinch zoom)
-        let lastTouchDist = 0;
-
-        container.addEventListener('touchstart', function(e) {
-            if (e.target.closest('.schema-controls') || e.target.closest('button')) return;
-            if (e.touches.length === 1) {
-                isPanning = true;
-                startX = e.touches[0].clientX - translateX;
-                startY = e.touches[0].clientY - translateY;
-            } else if (e.touches.length === 2) {
-                const dx = e.touches[0].clientX - e.touches[1].clientX;
-                const dy = e.touches[0].clientY - e.touches[1].clientY;
-                lastTouchDist = Math.sqrt(dx * dx + dy * dy);
-                isPanning = false;
-            }
-        }, { passive: true });
-
-        container.addEventListener('touchmove', function(e) {
-            if (e.touches.length === 1 && isPanning) {
-                e.preventDefault();
-                translateX = e.touches[0].clientX - startX;
-                translateY = e.touches[0].clientY - startY;
-                updateTransform();
-            } else if (e.touches.length === 2) {
-                e.preventDefault();
-                const dx = e.touches[0].clientX - e.touches[1].clientX;
-                const dy = e.touches[0].clientY - e.touches[1].clientY;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                const scaleChange = (dist - lastTouchDist) / 200;
-                if (Math.abs(scaleChange) > 0.01) {
-                    const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-                    const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-                    zoom(scaleChange, centerX, centerY);
-                    lastTouchDist = dist;
-                }
-            }
-        }, { passive: false });
-
-        container.addEventListener('touchend', function() {
-            isPanning = false;
-        });
-
-        // Button controls
-        zoomIn.addEventListener('click', function() {
-            const rect = container.getBoundingClientRect();
-            zoom(SCALE_STEP, rect.left + rect.width / 2, rect.top + rect.height / 2);
-        });
-
-        zoomOut.addEventListener('click', function() {
-            const rect = container.getBoundingClientRect();
-            zoom(-SCALE_STEP, rect.left + rect.width / 2, rect.top + rect.height / 2);
-        });
-
-        zoomReset.addEventListener('click', resetZoom);
-
-        // Keyboard shortcuts: + / - to zoom, 0 to reset
-        document.addEventListener('keydown', function(e) {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-            if (e.key === '+' || e.key === '=') {
-                const rect = container.getBoundingClientRect();
-                zoom(SCALE_STEP, rect.left + rect.width / 2, rect.top + rect.height / 2);
-            } else if (e.key === '-') {
-                const rect = container.getBoundingClientRect();
-                zoom(-SCALE_STEP, rect.left + rect.width / 2, rect.top + rect.height / 2);
-            } else if (e.key === '0') {
-                resetZoom();
-            }
-        });
+    var zoomLevel = document.getElementById('cy-zoom-level');
+    function updateZoom() {
+        zoomLevel.textContent = Math.round(cy.zoom() * 100) + '%';
     }
+    cy.on('zoom', updateZoom);
+    updateZoom();
 
-    // Initialize zoom/pan - use DOMContentLoaded or setTimeout fallback
-    function scheduleInitZoom() {
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initZoom, { once: true });
-        } else {
-            // DOMContentLoaded already fired. Use setTimeout to yield to event loop.
-            setTimeout(initZoom, 0);
-        }
-    }
-    scheduleInitZoom();
+    document.getElementById('cy-zoom-in').addEventListener('click', function () {
+        cy.zoom({ level: cy.zoom() * 1.2, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } });
+    });
+    document.getElementById('cy-zoom-out').addEventListener('click', function () {
+        cy.zoom({ level: cy.zoom() / 1.2, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } });
+    });
+    document.getElementById('cy-fit').addEventListener('click', function () { cy.fit(undefined, 40); });
+    document.getElementById('cy-reset').addEventListener('click', function () { cy.reset(); });
+
+    var infoPanel = document.getElementById('cy-info-panel');
+    var infoTitle = document.getElementById('cy-info-title');
+    var infoCols  = document.getElementById('cy-info-columns');
+
+    function closePanel() { infoPanel.style.display = 'none'; cy.nodes().unselect(); }
+
+    cy.on('tap', 'node', function (e) {
+        var node = e.target;
+        var data = node.data();
+        infoTitle.textContent = data.label;
+        infoCols.innerHTML = '';
+        (data.columns || []).forEach(function (col) {
+            var li = document.createElement('li');
+            li.style.cssText = 'display:flex;justify-content:space-between;gap:8px;padding:1px 0;';
+            li.innerHTML = '<span>' + col.name + '</span><span style="color:var(--color-muted)">' + col.type + '</span>';
+            infoCols.appendChild(li);
+        });
+        infoPanel.style.display = 'block';
+    });
+
+    cy.on('tap', function (e) { if (e.target === cy) closePanel(); });
+    document.getElementById('cy-info-close').addEventListener('click', closePanel);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closePanel(); });
+})();
 </script>
 {% endblock %}

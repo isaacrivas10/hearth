@@ -141,3 +141,47 @@ async def test_scope_disposes_engine_on_exception(file_db: str) -> None:
         assert widgets == []
     finally:
         await verify_engine.dispose()
+
+
+async def test_emitted_events_returns_snapshot(file_db: str) -> None:
+    """emitted_events returns a list copy; clearing the buffer does not affect it."""
+    from hearth import Event, System
+    from hearth.kernel.transaction import _UnitOfWork, transaction
+
+    class _Ev(Event, plugin="ev_snap_test"):
+        note: str
+
+    engine = make_async_engine(file_db)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(METADATA.create_all, tables=[OUTBOX_TABLE])
+        async with transaction(engine, actor=System()) as uow:
+            uow.emit(_Ev(note="a"))
+            uow.emit(_Ev(note="b"))
+            snapshot = uow.emitted_events
+            assert len(snapshot) == 2
+            assert snapshot[0].note == "a"  # type: ignore[attr-defined]
+    finally:
+        await engine.dispose()
+
+
+async def test_emitted_events_is_list_not_view(file_db: str) -> None:
+    """Mutating the returned list does not affect the internal buffer."""
+    from hearth import Event, System
+    from hearth.kernel.transaction import transaction
+
+    class _Ev2(Event, plugin="ev_view_test"):
+        note: str
+
+    engine = make_async_engine(file_db)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(METADATA.create_all, tables=[OUTBOX_TABLE])
+        async with transaction(engine, actor=System()) as uow:
+            uow.emit(_Ev2(note="x"))
+            snapshot = uow.emitted_events
+            snapshot.clear()
+            # Buffer still has the event (flush will write it)
+            assert len(uow.emitted_events) == 1
+    finally:
+        await engine.dispose()

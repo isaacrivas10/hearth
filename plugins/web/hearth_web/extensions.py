@@ -37,6 +37,14 @@ class SlotContribution:
 
 
 @dataclass(frozen=True)
+class RenderConfig:
+    template: str | None = None
+    fields: list[str] | None = None
+    permission: str | None = None
+    submit_label: str | None = None
+
+
+@dataclass(frozen=True)
 class WebModule:
     name: str
     router: APIRouter | None = None
@@ -45,6 +53,7 @@ class WebModule:
     package_dir: str | None = None
     nav: list[NavItem] = field(default_factory=list)
     contributions: list[SlotContribution] = field(default_factory=list)
+    render: dict[type, dict[str, RenderConfig]] = field(default_factory=dict)
 
 
 EntryPoint = importlib.metadata.EntryPoint

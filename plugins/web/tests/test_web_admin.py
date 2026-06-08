@@ -18,13 +18,14 @@ def test_counts_from_registry(web):
     assert c["entities"] >= 1  # auth ships User, Role, etc.
 
 
-def test_mermaid_includes_tables(web):
-    from hearth_web.admin.introspection import schema_mermaid
+def test_schema_graph_includes_nodes(web):
+    from hearth_web.admin.introspection import schema_graph
     from plugins.web.tests.conftest import make_registry
 
-    text = schema_mermaid(make_registry())
-    assert text.startswith("erDiagram") or text.startswith("graph")
-    assert "users" in text.lower() or "user" in text.lower()
+    g = schema_graph(make_registry())
+    assert "nodes" in g and "edges" in g
+    node_ids = [n["data"]["id"] for n in g["nodes"]]
+    assert any("user" in nid.lower() for nid in node_ids)
 
 
 def _login(web):
@@ -65,7 +66,7 @@ def test_entity_detail_shows_fields(web):
 def test_schema_page_renders_graph(web):
     _login(web)
     r = web.client.get("/admin/schema")
-    assert r.status_code == 200 and "erDiagram" in r.text
+    assert r.status_code == 200 and "cytoscape" in r.text.lower()
 
 
 def test_admin_requires_auth(web):

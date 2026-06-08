@@ -76,6 +76,10 @@ class _UnitOfWork:  # pyright: ignore[reportUnusedClass]
     def emit(self, event: Event) -> None:
         self._event_buffer.append(event)
 
+    @property
+    def emitted_events(self) -> list[Event]:
+        return list(self._event_buffer)
+
     async def execute(self, *args: Any, **kwargs: Any) -> Any:
         """Forward to the underlying AsyncSession's `execute`.
 

@@ -46,3 +46,13 @@ class UnitOfWork(Protocol):
         transaction commit.
         """
         ...
+
+    @property
+    def emitted_events(self) -> list[Event]:
+        """Snapshot of events buffered so far in this transaction. Read-only.
+
+        Returns a new list each call — mutating the result does not affect
+        the buffer. Use for inspection after calling sub-actions; do not
+        use to drive commit behaviour.
+        """
+        ...

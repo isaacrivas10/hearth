@@ -5,20 +5,10 @@
     <h1>Preferences</h1>
 </header>
 
-<div
-    style="
-        display: grid;
-        grid-template-columns: 1fr 240px;
-        gap: var(--space-5);
-        align-items: start;
-    "
->
-    <!-- Controls -->
-    <div>
-        <!-- Profile -->
-        <section style="margin-bottom: var(--space-5)">
-            <h2>Profile</h2>
-            <wa-card>
+<!-- Profile -->
+<section style="margin-bottom: var(--space-5)">
+    <h2>Profile</h2>
+    <wa-card>
                 <div
                     style="
                         display: flex;
@@ -56,11 +46,20 @@
                     {% endif %}
                 </div>
             </wa-card>
-        </section>
+</section>
 
-        <!-- Appearance -->
-        <section>
-            <h2>Appearance</h2>
+<!-- Appearance -->
+<section>
+    <h2>Appearance</h2>
+    <div
+        style="
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: var(--space-5);
+            align-items: start;
+        "
+    >
+    <div>
 
             <!-- Color scheme -->
             <div style="margin-bottom: var(--space-4)">
@@ -819,7 +818,6 @@
             >
                 Reset to defaults
             </wa-button>
-        </section>
     </div>
 
     <!-- Live preview (sticky) — uses Hearth tokens; reflects all dims automatically. -->
@@ -888,7 +886,8 @@
             </div>
         </div>
     </div>
-</div>
+    </div>
+</section>
 
 <script>
     (function () {

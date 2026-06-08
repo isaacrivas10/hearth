@@ -47,24 +47,39 @@ def entity_fields(entity_cls: type) -> list[dict[str, Any]]:
     return out
 
 
-def schema_mermaid(registry: Registry) -> str:
-    """Build a mermaid ER diagram from entity tables + FKs across all plugins."""
-    lines = ["erDiagram"]
-    edges: list[str] = []
+def schema_graph(registry: Registry) -> dict:
+    """Build Cytoscape.js graph data from entity tables + FKs."""
+    nodes = []
+    edges = []
     for info in registry.plugins.values():
         for ent in info.entities:
             table = getattr(ent, "__table__", None)
             if table is None:
                 continue
-            lines.append(f"  {table.name} {{")
-            for col in table.columns:
-                lines.append(f"    {_col_type_name(col)} {col.name}")
-            lines.append("  }")
+            columns = [
+                {"name": col.name, "type": _col_type_name(col)}
+                for col in table.columns
+            ]
+            nodes.append({
+                "data": {
+                    "id": table.name,
+                    "label": table.name,
+                    "columns": columns,
+                }
+            })
             for col in table.columns:
                 for fk in col.foreign_keys:
                     target = fk.column.table.name
-                    edges.append(f"  {table.name} }}o--|| {target} : {col.name}")
-    return "\n".join(lines + edges)
+                    edge_id = f"{table.name}__{col.name}__{target}"
+                    edges.append({
+                        "data": {
+                            "id": edge_id,
+                            "source": table.name,
+                            "target": target,
+                            "label": col.name,
+                        }
+                    })
+    return {"nodes": nodes, "edges": edges}
 
 
 async def db_status(engine: Any, registry: Registry) -> dict[str, Any]:

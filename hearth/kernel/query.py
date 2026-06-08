@@ -52,6 +52,10 @@ class Query[E]:
 
     # ---- chainable ----
 
+    def select_from(self, from_clause: Any) -> Self:
+        self._stmt = self._stmt.select_from(from_clause)
+        return self
+
     def where(self, *clauses: WhereClause) -> Self:
         self._stmt = self._stmt.where(*clauses)
         return self
@@ -153,3 +157,7 @@ class Query[E]:
         count_stmt = select(func.count()).select_from(sub)
         result = await self._session.scalar(count_stmt)
         return (result or 0) > 0
+
+    async def mappings(self) -> list[dict[str, Any]]:
+        result = await self._session.execute(self._stmt)
+        return [dict(row) for row in result.mappings()]
