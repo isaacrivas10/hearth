@@ -31,3 +31,20 @@
         {% endfor %}
     </ul>
 </nav>
+{% if current_actor is defined and current_actor.actor_kind != 'anonymous' %}
+<a
+    href="/admin/preferences"
+    class="profile-row {% if request is defined and (request.url.path == '/admin/preferences' or request.url.path.startswith('/admin/preferences/')) %}active{% endif %}"
+    aria-label="Open preferences"
+>
+    <div class="profile-avatar">
+        {{ (current_actor.display_name or '?')[0]|upper }}
+    </div>
+    <div>
+        <div class="profile-name">
+            {{ current_actor.display_name or 'Admin' }}
+        </div>
+        <div class="profile-role">{{ current_actor.actor_kind|title }}</div>
+    </div>
+</a>
+{% endif %}

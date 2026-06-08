@@ -31,13 +31,27 @@
         {% endif %}
         <script>
             (function () {
-                var t = localStorage.getItem("theme");
-                var dark = t === "dark";
-                document.documentElement.dataset.theme = dark
-                    ? "dark"
-                    : "light";
-                document.documentElement.classList.toggle("wa-dark", dark);
-                document.documentElement.classList.toggle("wa-light", !dark);
+                try {
+                    var t = localStorage.getItem("theme");
+                    var dark = t === "dark";
+                    document.documentElement.dataset.theme = dark
+                        ? "dark"
+                        : "light";
+                    document.documentElement.classList.toggle("wa-dark", dark);
+                    document.documentElement.classList.toggle(
+                        "wa-light",
+                        !dark,
+                    );
+                    document.documentElement.dataset.density =
+                        localStorage.getItem("density") || "balanced";
+                    document.documentElement.dataset.sidebarTone =
+                        localStorage.getItem("sidebar-tone") || "match";
+                    document.documentElement.dataset.radius =
+                        localStorage.getItem("radius") || "rounded";
+                } catch (e) {
+                    /* localStorage unavailable — CSS attribute selectors simply won't
+                       match; defaults (no data-* set) fall through to base styles. */
+                }
             })();
         </script>
     </head>
@@ -47,6 +61,7 @@
         <main class="content">{% block content %}{% endblock %}</main>
         {% endblock %}
         <script src="/static/theme-toggle.js"></script>
+        <script src="/static/prefs.js"></script>
         <script src="/static/vendor/htmx.min.js" defer></script>
         <script src="/static/vendor/alpine.min.js" defer></script>
     </body>

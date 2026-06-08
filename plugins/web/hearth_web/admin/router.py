@@ -102,3 +102,8 @@ async def schema(request: Request):
 async def db(request: Request):
     status = await db_status(request.app.state.engine, request.app.state.registry)
     return await render(request, "admin/db.html", db=status)
+
+
+@admin_router.get("/preferences")
+async def preferences(request: Request):
+    return await render(request, "admin/preferences.html")

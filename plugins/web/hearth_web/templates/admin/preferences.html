@@ -1,0 +1,931 @@
+{% extends "admin/base.html" %} {% block title %}Preferences — {{ brand.name
+}}{% endblock %} {% block page_content %}
+
+<header class="page-header">
+    <h1>Preferences</h1>
+</header>
+
+<div
+    style="
+        display: grid;
+        grid-template-columns: 1fr 240px;
+        gap: var(--space-5);
+        align-items: start;
+    "
+>
+    <!-- Controls -->
+    <div>
+        <!-- Profile -->
+        <section style="margin-bottom: var(--space-5)">
+            <h2>Profile</h2>
+            <wa-card>
+                <div
+                    style="
+                        display: flex;
+                        align-items: center;
+                        gap: var(--space-3);
+                    "
+                >
+                    {% if current_actor is defined and current_actor.actor_kind
+                    != 'anonymous' %}
+                    <div
+                        class="profile-avatar"
+                        style="
+                            width: 36px;
+                            height: 36px;
+                            font-size: 1rem;
+                            flex-shrink: 0;
+                        "
+                    >
+                        {{ (current_actor.display_name or '?')[0]|upper }}
+                    </div>
+                    <div>
+                        <div style="font-size: 0.95rem; font-weight: 600">
+                            {{ current_actor.display_name or 'Admin' }}
+                        </div>
+                        <div
+                            style="font-size: 0.8rem; color: var(--color-muted)"
+                        >
+                            {{ current_actor.actor_kind }}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div style="font-size: 0.9rem; color: var(--color-muted)">
+                        Not signed in
+                    </div>
+                    {% endif %}
+                </div>
+            </wa-card>
+        </section>
+
+        <!-- Appearance -->
+        <section>
+            <h2>Appearance</h2>
+
+            <!-- Color scheme -->
+            <div style="margin-bottom: var(--space-4)">
+                <div
+                    style="
+                        font-size: 0.75rem;
+                        font-weight: 600;
+                        text-transform: uppercase;
+                        letter-spacing: 0.05em;
+                        color: var(--color-muted);
+                        margin-bottom: var(--space-2);
+                    "
+                >
+                    Color scheme
+                </div>
+                <div
+                    style="
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: var(--space-2);
+                    "
+                >
+                    <div
+                        class="pref-tile"
+                        data-pref-dim="theme"
+                        data-pref-val="light"
+                    >
+                        <div class="pref-tile-check">✓</div>
+                        <div
+                            style="
+                                height: 40px;
+                                border: 1px solid #d4d4d2;
+                                border-radius: 4px;
+                                margin-bottom: var(--space-2);
+                                display: flex;
+                                overflow: hidden;
+                                background: #f8f8f7;
+                            "
+                        >
+                            <div
+                                style="
+                                    width: 28px;
+                                    background: #f0f0ee;
+                                    border-right: 1px solid #d4d4d2;
+                                "
+                            ></div>
+                            <div
+                                style="
+                                    flex: 1;
+                                    padding: 5px 7px;
+                                    display: flex;
+                                    flex-direction: column;
+                                    gap: 3px;
+                                "
+                            >
+                                <div
+                                    style="
+                                        height: 4px;
+                                        border-radius: 2px;
+                                        background: #b84a14;
+                                        opacity: 0.5;
+                                        width: 55%;
+                                    "
+                                ></div>
+                                <div
+                                    style="
+                                        height: 4px;
+                                        border-radius: 2px;
+                                        background: #d4d4d2;
+                                        width: 75%;
+                                    "
+                                ></div>
+                                <div
+                                    style="
+                                        height: 4px;
+                                        border-radius: 2px;
+                                        background: #d4d4d2;
+                                        width: 55%;
+                                    "
+                                ></div>
+                            </div>
+                        </div>
+                        <div style="font-size: 0.84rem; font-weight: 600">
+                            Light
+                        </div>
+                        <div
+                            style="
+                                font-size: 0.73rem;
+                                color: var(--color-muted);
+                            "
+                        >
+                            Iron &amp; Pitch light
+                        </div>
+                    </div>
+
+                    <div
+                        class="pref-tile"
+                        data-pref-dim="theme"
+                        data-pref-val="dark"
+                    >
+                        <div class="pref-tile-check">✓</div>
+                        <div
+                            style="
+                                height: 40px;
+                                border: 1px solid #2a2a2a;
+                                border-radius: 4px;
+                                margin-bottom: var(--space-2);
+                                display: flex;
+                                overflow: hidden;
+                                background: #0f0f0f;
+                            "
+                        >
+                            <div
+                                style="
+                                    width: 28px;
+                                    background: #1c1c1c;
+                                    border-right: 1px solid #2a2a2a;
+                                "
+                            ></div>
+                            <div
+                                style="
+                                    flex: 1;
+                                    padding: 5px 7px;
+                                    display: flex;
+                                    flex-direction: column;
+                                    gap: 3px;
+                                "
+                            >
+                                <div
+                                    style="
+                                        height: 4px;
+                                        border-radius: 2px;
+                                        background: #d2691e;
+                                        opacity: 0.7;
+                                        width: 55%;
+                                    "
+                                ></div>
+                                <div
+                                    style="
+                                        height: 4px;
+                                        border-radius: 2px;
+                                        background: #242424;
+                                        width: 75%;
+                                    "
+                                ></div>
+                                <div
+                                    style="
+                                        height: 4px;
+                                        border-radius: 2px;
+                                        background: #242424;
+                                        width: 55%;
+                                    "
+                                ></div>
+                            </div>
+                        </div>
+                        <div style="font-size: 0.84rem; font-weight: 600">
+                            Dark
+                        </div>
+                        <div
+                            style="
+                                font-size: 0.73rem;
+                                color: var(--color-muted);
+                            "
+                        >
+                            Iron &amp; Pitch dark
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Density -->
+            <div style="margin-bottom: var(--space-4)">
+                <div
+                    style="
+                        font-size: 0.75rem;
+                        font-weight: 600;
+                        text-transform: uppercase;
+                        letter-spacing: 0.05em;
+                        color: var(--color-muted);
+                        margin-bottom: var(--space-2);
+                    "
+                >
+                    Density
+                </div>
+                <div
+                    style="
+                        display: grid;
+                        grid-template-columns: repeat(3, 1fr);
+                        gap: var(--space-2);
+                    "
+                >
+                    <div
+                        class="pref-tile"
+                        data-pref-dim="density"
+                        data-pref-val="compact"
+                    >
+                        <div class="pref-tile-check">✓</div>
+                        <div
+                            style="
+                                height: 40px;
+                                border: 1px solid #d4d4d2;
+                                border-radius: 4px;
+                                margin-bottom: var(--space-2);
+                                display: flex;
+                                overflow: hidden;
+                                background: #f8f8f7;
+                            "
+                        >
+                            <div
+                                style="
+                                    width: 22px;
+                                    background: #f0f0ee;
+                                    border-right: 1px solid #d4d4d2;
+                                "
+                            ></div>
+                            <div
+                                style="
+                                    flex: 1;
+                                    padding: 3px 4px;
+                                    display: flex;
+                                    flex-direction: column;
+                                    gap: 1px;
+                                "
+                            >
+                                <div
+                                    style="
+                                        height: 4px;
+                                        border-radius: 1px;
+                                        background: #b84a14;
+                                        opacity: 0.5;
+                                        width: 55%;
+                                    "
+                                ></div>
+                                <div
+                                    style="
+                                        height: 4px;
+                                        border-radius: 1px;
+                                        background: #d4d4d2;
+                                        width: 75%;
+                                    "
+                                ></div>
+                                <div
+                                    style="
+                                        height: 4px;
+                                        border-radius: 1px;
+                                        background: #d4d4d2;
+                                        width: 60%;
+                                    "
+                                ></div>
+                                <div
+                                    style="
+                                        height: 4px;
+                                        border-radius: 1px;
+                                        background: #d4d4d2;
+                                        width: 70%;
+                                    "
+                                ></div>
+                            </div>
+                        </div>
+                        <div style="font-size: 0.84rem; font-weight: 600">
+                            Compact
+                        </div>
+                        <div
+                            style="
+                                font-size: 0.73rem;
+                                color: var(--color-muted);
+                            "
+                        >
+                            Maximum density
+                        </div>
+                    </div>
+
+                    <div
+                        class="pref-tile"
+                        data-pref-dim="density"
+                        data-pref-val="balanced"
+                    >
+                        <div class="pref-tile-check">✓</div>
+                        <div
+                            style="
+                                height: 40px;
+                                border: 1px solid #d4d4d2;
+                                border-radius: 4px;
+                                margin-bottom: var(--space-2);
+                                display: flex;
+                                overflow: hidden;
+                                background: #f8f8f7;
+                            "
+                        >
+                            <div
+                                style="
+                                    width: 26px;
+                                    background: #f0f0ee;
+                                    border-right: 1px solid #d4d4d2;
+                                "
+                            ></div>
+                            <div
+                                style="
+                                    flex: 1;
+                                    padding: 4px 5px;
+                                    display: flex;
+                                    flex-direction: column;
+                                    gap: 3px;
+                                "
+                            >
+                                <div
+                                    style="
+                                        height: 4px;
+                                        border-radius: 1px;
+                                        background: #b84a14;
+                                        opacity: 0.5;
+                                        width: 55%;
+                                    "
+                                ></div>
+                                <div
+                                    style="
+                                        height: 4px;
+                                        border-radius: 1px;
+                                        background: #d4d4d2;
+                                        width: 75%;
+                                    "
+                                ></div>
+                                <div
+                                    style="
+                                        height: 4px;
+                                        border-radius: 1px;
+                                        background: #d4d4d2;
+                                        width: 60%;
+                                    "
+                                ></div>
+                            </div>
+                        </div>
+                        <div style="font-size: 0.84rem; font-weight: 600">
+                            Balanced
+                        </div>
+                        <div
+                            style="
+                                font-size: 0.73rem;
+                                color: var(--color-muted);
+                            "
+                        >
+                            Comfortable default
+                        </div>
+                    </div>
+
+                    <div
+                        class="pref-tile"
+                        data-pref-dim="density"
+                        data-pref-val="airy"
+                    >
+                        <div class="pref-tile-check">✓</div>
+                        <div
+                            style="
+                                height: 40px;
+                                border: 1px solid #d4d4d2;
+                                border-radius: 4px;
+                                margin-bottom: var(--space-2);
+                                display: flex;
+                                overflow: hidden;
+                                background: #f8f8f7;
+                            "
+                        >
+                            <div
+                                style="
+                                    width: 30px;
+                                    background: #f0f0ee;
+                                    border-right: 1px solid #d4d4d2;
+                                "
+                            ></div>
+                            <div
+                                style="
+                                    flex: 1;
+                                    padding: 6px 7px;
+                                    display: flex;
+                                    flex-direction: column;
+                                    gap: 6px;
+                                "
+                            >
+                                <div
+                                    style="
+                                        height: 4px;
+                                        border-radius: 1px;
+                                        background: #b84a14;
+                                        opacity: 0.5;
+                                        width: 55%;
+                                    "
+                                ></div>
+                                <div
+                                    style="
+                                        height: 4px;
+                                        border-radius: 1px;
+                                        background: #d4d4d2;
+                                        width: 75%;
+                                    "
+                                ></div>
+                            </div>
+                        </div>
+                        <div style="font-size: 0.84rem; font-weight: 600">
+                            Airy
+                        </div>
+                        <div
+                            style="
+                                font-size: 0.73rem;
+                                color: var(--color-muted);
+                            "
+                        >
+                            Editorial spacing
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar tone -->
+            <div style="margin-bottom: var(--space-4)">
+                <div
+                    style="
+                        font-size: 0.75rem;
+                        font-weight: 600;
+                        text-transform: uppercase;
+                        letter-spacing: 0.05em;
+                        color: var(--color-muted);
+                        margin-bottom: var(--space-2);
+                    "
+                >
+                    Sidebar tone
+                </div>
+                <div
+                    style="
+                        display: grid;
+                        grid-template-columns: repeat(3, 1fr);
+                        gap: var(--space-2);
+                    "
+                >
+                    <div
+                        class="pref-tile"
+                        data-pref-dim="sidebarTone"
+                        data-pref-val="match"
+                    >
+                        <div class="pref-tile-check">✓</div>
+                        <div
+                            style="
+                                height: 40px;
+                                border: 1px solid #d4d4d2;
+                                border-radius: 4px;
+                                margin-bottom: var(--space-2);
+                                display: flex;
+                                overflow: hidden;
+                                background: #f8f8f7;
+                            "
+                        >
+                            <div
+                                style="
+                                    width: 26px;
+                                    background: #f0f0ee;
+                                    border-right: 1px solid #d4d4d2;
+                                "
+                            ></div>
+                            <div
+                                style="
+                                    flex: 1;
+                                    padding: 4px 5px;
+                                    display: flex;
+                                    flex-direction: column;
+                                    gap: 3px;
+                                "
+                            >
+                                <div
+                                    style="
+                                        height: 4px;
+                                        border-radius: 1px;
+                                        background: #d4d4d2;
+                                        width: 75%;
+                                    "
+                                ></div>
+                                <div
+                                    style="
+                                        height: 4px;
+                                        border-radius: 1px;
+                                        background: #d4d4d2;
+                                        width: 55%;
+                                    "
+                                ></div>
+                            </div>
+                        </div>
+                        <div style="font-size: 0.84rem; font-weight: 600">
+                            Match
+                        </div>
+                        <div
+                            style="
+                                font-size: 0.73rem;
+                                color: var(--color-muted);
+                            "
+                        >
+                            Same as surface
+                        </div>
+                    </div>
+
+                    <div
+                        class="pref-tile"
+                        data-pref-dim="sidebarTone"
+                        data-pref-val="subtle"
+                    >
+                        <div class="pref-tile-check">✓</div>
+                        <div
+                            style="
+                                height: 40px;
+                                border: 1px solid #d4d4d2;
+                                border-radius: 4px;
+                                margin-bottom: var(--space-2);
+                                display: flex;
+                                overflow: hidden;
+                                background: #f8f8f7;
+                            "
+                        >
+                            <div
+                                style="
+                                    width: 26px;
+                                    background: #e8e8e6;
+                                    border-right: 1px solid #d4d4d2;
+                                "
+                            ></div>
+                            <div
+                                style="
+                                    flex: 1;
+                                    padding: 4px 5px;
+                                    display: flex;
+                                    flex-direction: column;
+                                    gap: 3px;
+                                "
+                            >
+                                <div
+                                    style="
+                                        height: 4px;
+                                        border-radius: 1px;
+                                        background: #d4d4d2;
+                                        width: 75%;
+                                    "
+                                ></div>
+                                <div
+                                    style="
+                                        height: 4px;
+                                        border-radius: 1px;
+                                        background: #d4d4d2;
+                                        width: 55%;
+                                    "
+                                ></div>
+                            </div>
+                        </div>
+                        <div style="font-size: 0.84rem; font-weight: 600">
+                            Subtle
+                        </div>
+                        <div
+                            style="
+                                font-size: 0.73rem;
+                                color: var(--color-muted);
+                            "
+                        >
+                            Slightly recessed
+                        </div>
+                    </div>
+
+                    <div
+                        class="pref-tile"
+                        data-pref-dim="sidebarTone"
+                        data-pref-val="branded"
+                    >
+                        <div class="pref-tile-check">✓</div>
+                        <div
+                            style="
+                                height: 40px;
+                                border: 1px solid #2e1a0e;
+                                border-radius: 4px;
+                                margin-bottom: var(--space-2);
+                                display: flex;
+                                overflow: hidden;
+                                background: #f8f8f7;
+                            "
+                        >
+                            <div
+                                style="
+                                    width: 26px;
+                                    background: #1a0d07;
+                                    border-right: 1px solid #2e1a0e;
+                                "
+                            ></div>
+                            <div
+                                style="
+                                    flex: 1;
+                                    padding: 4px 5px;
+                                    display: flex;
+                                    flex-direction: column;
+                                    gap: 3px;
+                                "
+                            >
+                                <div
+                                    style="
+                                        height: 4px;
+                                        border-radius: 1px;
+                                        background: #d4d4d2;
+                                        width: 75%;
+                                    "
+                                ></div>
+                                <div
+                                    style="
+                                        height: 4px;
+                                        border-radius: 1px;
+                                        background: #d4d4d2;
+                                        width: 55%;
+                                    "
+                                ></div>
+                            </div>
+                        </div>
+                        <div style="font-size: 0.84rem; font-weight: 600">
+                            Branded
+                        </div>
+                        <div
+                            style="
+                                font-size: 0.73rem;
+                                color: var(--color-muted);
+                            "
+                        >
+                            Dark forge sidebar
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Corner radius -->
+            <div style="margin-bottom: var(--space-4)">
+                <div
+                    style="
+                        font-size: 0.75rem;
+                        font-weight: 600;
+                        text-transform: uppercase;
+                        letter-spacing: 0.05em;
+                        color: var(--color-muted);
+                        margin-bottom: var(--space-2);
+                    "
+                >
+                    Corner radius
+                </div>
+                <div
+                    style="
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: var(--space-2);
+                    "
+                >
+                    <div
+                        class="pref-tile"
+                        data-pref-dim="radius"
+                        data-pref-val="rounded"
+                    >
+                        <div class="pref-tile-check">✓</div>
+                        <div
+                            style="
+                                height: 40px;
+                                background: var(--color-surface);
+                                border: 1px solid var(--color-border);
+                                border-radius: 4px;
+                                margin-bottom: var(--space-2);
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                gap: 6px;
+                            "
+                        >
+                            <div
+                                style="
+                                    width: 22px;
+                                    height: 14px;
+                                    border-radius: 4px;
+                                    background: var(--color-accent);
+                                    opacity: 0.5;
+                                "
+                            ></div>
+                            <div
+                                style="
+                                    width: 30px;
+                                    height: 12px;
+                                    border-radius: 4px;
+                                    background: var(--color-border);
+                                "
+                            ></div>
+                        </div>
+                        <div style="font-size: 0.84rem; font-weight: 600">
+                            Rounded
+                        </div>
+                        <div
+                            style="
+                                font-size: 0.73rem;
+                                color: var(--color-muted);
+                            "
+                        >
+                            Default (8px)
+                        </div>
+                    </div>
+
+                    <div
+                        class="pref-tile"
+                        data-pref-dim="radius"
+                        data-pref-val="sharp"
+                    >
+                        <div class="pref-tile-check">✓</div>
+                        <div
+                            style="
+                                height: 40px;
+                                background: var(--color-surface);
+                                border: 1px solid var(--color-border);
+                                border-radius: 4px;
+                                margin-bottom: var(--space-2);
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                gap: 6px;
+                            "
+                        >
+                            <div
+                                style="
+                                    width: 22px;
+                                    height: 14px;
+                                    border-radius: 0;
+                                    background: var(--color-accent);
+                                    opacity: 0.5;
+                                "
+                            ></div>
+                            <div
+                                style="
+                                    width: 30px;
+                                    height: 12px;
+                                    border-radius: 0;
+                                    background: var(--color-border);
+                                "
+                            ></div>
+                        </div>
+                        <div style="font-size: 0.84rem; font-weight: 600">
+                            Sharp
+                        </div>
+                        <div
+                            style="
+                                font-size: 0.73rem;
+                                color: var(--color-muted);
+                            "
+                        >
+                            No radius
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reset -->
+            <wa-button
+                appearance="plain"
+                size="small"
+                onclick="resetPreferences()"
+            >
+                Reset to defaults
+            </wa-button>
+        </section>
+    </div>
+
+    <!-- Live preview (sticky) — uses Hearth tokens; reflects all dims automatically. -->
+    <div style="position: sticky; top: var(--space-4)">
+        <div
+            style="
+                font-size: 0.72rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.07em;
+                color: var(--color-muted);
+                margin-bottom: var(--space-2);
+            "
+        >
+            Live preview
+        </div>
+        <div class="lp-frame">
+            <div class="lp-hdr">
+                <span class="lp-brand">&#9632; {{ brand.name }}</span>
+                <span class="lp-toggle">&#9681;</span>
+            </div>
+            <div class="lp-body">
+                <nav class="lp-sb">
+                    <div class="lp-slabel">Core</div>
+                    <div class="lp-ni lp-active">Dashboard</div>
+                    <div class="lp-ni">Plugins</div>
+                    <div class="lp-ni">Entities</div>
+                    <div class="lp-div"></div>
+                    <div class="lp-slabel">System</div>
+                    <div class="lp-ni">Actions</div>
+                    <div class="lp-ni">Events</div>
+                    <div class="lp-profile">
+                        <div class="lp-av"></div>
+                        <span>You</span>
+                    </div>
+                </nav>
+                <div class="lp-main">
+                    <div class="lp-title">Dashboard</div>
+                    <div class="lp-cards">
+                        <div class="lp-card">
+                            <span class="lp-stat">3</span
+                            ><span class="lp-lbl">Plugins</span>
+                        </div>
+                        <div class="lp-card">
+                            <span class="lp-stat">12</span
+                            ><span class="lp-lbl">Entities</span>
+                        </div>
+                        <div class="lp-card">
+                            <span class="lp-stat">0</span
+                            ><span class="lp-lbl">Outbox</span>
+                        </div>
+                    </div>
+                    <div class="lp-tbl">
+                        <div class="lp-tbl-h">
+                            <span>Alias</span><span>Ver</span>
+                        </div>
+                        <div class="lp-tbl-r">
+                            <span class="lp-link">auth</span><span>0.1</span>
+                        </div>
+                        <div class="lp-tbl-r" style="border-bottom: 0">
+                            <span class="lp-link">commerce</span
+                            ><span>0.1</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        function applyTileSelection() {
+            var el = document.documentElement;
+            document
+                .querySelectorAll(".pref-tile[data-pref-dim]")
+                .forEach(function (tile) {
+                    var dim = tile.dataset.prefDim;
+                    var val = tile.dataset.prefVal;
+                    var current =
+                        dim === "theme"
+                            ? el.dataset.theme
+                            : dim === "density"
+                              ? el.dataset.density
+                              : dim === "sidebarTone"
+                                ? el.dataset.sidebarTone
+                                : el.dataset.radius;
+                    tile.classList.toggle("selected", val === current);
+                });
+        }
+        document
+            .querySelectorAll(".pref-tile[data-pref-dim]")
+            .forEach(function (tile) {
+                tile.addEventListener("click", function () {
+                    var dim = this.dataset.prefDim;
+                    var val = this.dataset.prefVal;
+                    // setTheme() is the value-setter from prefs.js (not toggleTheme()).
+                    if (dim === "theme") setTheme(val);
+                    else if (dim === "density") setDensity(val);
+                    else if (dim === "sidebarTone") setSidebarTone(val);
+                    else if (dim === "radius") setRadius(val);
+                    applyTileSelection();
+                });
+            });
+        applyTileSelection();
+    })();
+</script>
+
+{% endblock %}

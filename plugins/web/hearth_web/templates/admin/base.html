@@ -34,7 +34,17 @@
             {% endif %}
         </div>
     </header>
-    <div slot="navigation">{% include "admin/_partials/nav.html" %}</div>
+    <div
+        slot="navigation"
+        style="
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            background: var(--nav-bg);
+        "
+    >
+        {% include "admin/_partials/nav.html" %}
+    </div>
     <main>{% block page_content %}{% endblock %}</main>
 </wa-page>
 {% endblock %}

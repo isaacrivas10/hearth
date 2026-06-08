@@ -65,3 +65,45 @@ def test_dashboard_cards_and_chiplists(web):
     ents = web.client.get("/admin/entities")
     assert "<wa-tag" in ents.text
     assert "wa-cluster" in ents.text    # chips wrap via the wa-cluster utility
+
+
+def test_prefs_js_served(web):
+    r = web.client.get("/static/prefs.js")
+    assert r.status_code == 200
+    assert "setTheme" in r.text
+    assert "setDensity" in r.text
+    assert "setSidebarTone" in r.text
+    assert "setRadius" in r.text
+    assert "resetPreferences" in r.text
+
+
+def test_base_bootstrap_restores_all_dimensions(web):
+    r = web.client.get("/login")
+    html = r.text
+    # Bootstrap script covers all 4 dimensions — check localStorage key strings.
+    assert '"density"' in html        # localStorage.getItem("density")
+    assert '"sidebar-tone"' in html   # localStorage.getItem("sidebar-tone")
+    assert '"radius"' in html         # localStorage.getItem("radius")
+    # prefs.js is loaded in body.
+    assert 'prefs.js' in html
+
+
+def test_profile_row_in_admin_shell(web):
+    _login(web)
+    r = web.client.get("/admin")
+    assert r.status_code == 200
+    assert 'href="/admin/preferences"' in r.text
+    assert 'profile-row' in r.text
+
+
+def test_preferences_page_renders(web):
+    _login(web)
+    r = web.client.get("/admin/preferences")
+    assert r.status_code == 200
+    # All four tile dimensions present.
+    assert 'data-pref-dim="theme"' in r.text
+    assert 'data-pref-dim="density"' in r.text
+    assert 'data-pref-dim="sidebarTone"' in r.text
+    assert 'data-pref-dim="radius"' in r.text
+    # Reset control present.
+    assert 'resetPreferences' in r.text

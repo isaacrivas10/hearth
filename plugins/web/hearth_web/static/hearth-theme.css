@@ -1,65 +1,175 @@
 /* hearth-theme.css — Iron & Pitch. Canonical Hearth tokens + Web Awesome mapping. */
-:where(:root), .wa-light {
-  color-scheme: light;
-  --color-bg: #F8F8F7;
-  --color-surface: #F0F0EE;
-  --color-surface-2: #E8E8E6;
-  --color-fg: #1A1A1A;
-  --color-muted: #636363;
-  --color-border: #D4D4D2;
-  --color-border-strong: #C4C4C2;
-  --color-accent: #B84A14;
-  --color-accent-hover: #A03D10;
-  --accent-soft: color-mix(in srgb, var(--color-accent) 12%, transparent);
+:where(:root),
+.wa-light {
+    color-scheme: light;
+    --color-bg: #F8F8F7;
+    --color-surface: #F0F0EE;
+    --color-surface-2: #E8E8E6;
+    --color-fg: #1A1A1A;
+    --color-muted: #636363;
+    --color-border: #D4D4D2;
+    --color-border-strong: #C4C4C2;
+    --color-accent: #B84A14;
+    --color-accent-hover: #A03D10;
+    --accent-soft: color-mix(in srgb, var(--color-accent) 12%, transparent);
 
-  --color-success: #5C7346;
-  --color-danger: #A6342A;
-  --color-warning: #B8801C;
-  --color-on-loud: #F8F8F7;
+    --color-success: #5C7346;
+    --color-danger: #A6342A;
+    --color-warning: #B8801C;
+    --color-on-loud: #F8F8F7;
 
-  --radius: 8px;
-  --radius-sm: 5px;
+    --radius: 8px;
+    --radius-sm: 5px;
 }
+
 .wa-dark {
-  color-scheme: dark;
-  --color-bg: #0F0F0F;
-  --color-surface: #1C1C1C;
-  --color-surface-2: #242424;
-  --color-fg: #E2E2E0;
-  --color-muted: #9A9A98;
-  --color-border: #2A2A2A;
-  --color-border-strong: #3A3A3A;
-  --color-divider: #454545;
-  --color-accent: #D2691E;
-  --color-accent-hover: #E07A2E;
+    color-scheme: dark;
+    --color-bg: #0F0F0F;
+    --color-surface: #1C1C1C;
+    --color-surface-2: #242424;
+    --color-fg: #E2E2E0;
+    --color-muted: #9A9A98;
+    --color-border: #2A2A2A;
+    --color-border-strong: #3A3A3A;
+    --color-divider: #454545;
+    --color-accent: #D2691E;
+    --color-accent-hover: #E07A2E;
 
-  --color-success: #7C9460;
-  --color-danger: #C85546;
-  --color-warning: #D6A23A;
+    --color-success: #7C9460;
+    --color-danger: #C85546;
+    --color-warning: #D6A23A;
+    --color-on-loud: #F8F8F7;
 }
 
-:where(:root), .wa-light, .wa-dark {
-  /* surfaces */
-  --wa-color-surface-default: var(--color-bg);
-  --wa-color-surface-raised: var(--color-surface);
-  --wa-color-surface-lowered: var(--color-surface-2);
-  /* text/border */
-  --wa-color-text-normal: var(--color-fg);
-  --wa-color-text-quiet: var(--color-muted);
-  --wa-color-surface-border: var(--color-border);
-  /* brand ramp derived from --color-accent (fill/loud + tints) */
-  --wa-color-brand-fill-loud: var(--color-accent);
-  --wa-color-brand-fill-quiet: var(--accent-soft);
-  --wa-color-brand-on-loud: var(--color-on-loud);
-  --wa-color-brand-border: var(--color-accent);
-  /* semantics */
-  --wa-color-success-fill-loud: var(--color-success);
-  --wa-color-warning-fill-loud: var(--color-warning);
-  --wa-color-danger-fill-loud: var(--color-danger);
-  /* shape */
-  --wa-border-radius-m: var(--radius);
-  --wa-border-radius-s: var(--radius-sm);
-  /* shadow */
-  --wa-shadow-s: 0 1px 2px color-mix(in srgb, var(--color-fg) 12%, transparent);
-  --wa-shadow-m: 0 2px 8px color-mix(in srgb, var(--color-fg) 16%, transparent);
+:where(:root),
+.wa-light,
+.wa-dark {
+    /* surfaces */
+    --wa-color-surface-default: var(--color-bg);
+    --wa-color-surface-raised: var(--color-surface);
+    --wa-color-surface-lowered: var(--color-surface-2);
+    /* text/border */
+    --wa-color-text-normal: var(--color-fg);
+    --wa-color-text-quiet: var(--color-muted);
+    --wa-color-surface-border: var(--color-border);
+    /* brand ramp derived from --color-accent (fill/loud + tints) */
+    --wa-color-brand-fill-loud: var(--color-accent);
+    --wa-color-brand-fill-quiet: var(--accent-soft);
+    --wa-color-brand-on-loud: var(--color-on-loud);
+    --wa-color-brand-border: var(--color-accent);
+    /* semantics */
+    --wa-color-success-fill-loud: var(--color-success);
+    --wa-color-warning-fill-loud: var(--color-warning);
+    --wa-color-danger-fill-loud: var(--color-danger);
+    /* shape */
+    --wa-border-radius-m: var(--radius);
+    --wa-border-radius-s: var(--radius-sm);
+    /* shadow */
+    --wa-shadow-s: 0 1px 2px color-mix(in srgb, var(--color-fg) 12%, transparent);
+    --wa-shadow-m: 0 2px 8px color-mix(in srgb, var(--color-fg) 16%, transparent);
+    --wa-shadow-l: 0 4px 16px color-mix(in srgb, var(--color-fg) 20%, transparent);
+}
+
+/* ============================================================
+   Spacing scale — balanced default; density overrides below.
+   ============================================================ */
+:where(:root) {
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --shadow-sm: var(--wa-shadow-s);
+    /* alias for base.css references */
+}
+
+/* ============================================================
+   Density overrides
+   ============================================================ */
+[data-density="compact"] {
+    --space-1: 2px;
+    --space-2: 5px;
+    --space-3: 8px;
+    --space-4: 12px;
+    --space-5: 16px;
+    /* WA internals — scale ~0.65× */
+    --wa-space-3xs: 1px;
+    --wa-space-2xs: 3px;
+    --wa-space-xs: 5px;
+    --wa-space-s: 8px;
+    --wa-space-m: 10px;
+    --wa-space-l: 16px;
+    --wa-space-xl: 21px;
+}
+
+[data-density="airy"] {
+    --space-1: 6px;
+    --space-2: 12px;
+    --space-3: 18px;
+    --space-4: 24px;
+    --space-5: 36px;
+    /* WA internals — scale ~1.4× */
+    --wa-space-3xs: 3px;
+    --wa-space-2xs: 6px;
+    --wa-space-xs: 11px;
+    --wa-space-s: 17px;
+    --wa-space-m: 22px;
+    --wa-space-l: 34px;
+    --wa-space-xl: 45px;
+}
+
+/* ============================================================
+   Nav intermediate tokens — default (match)
+   ============================================================ */
+:where(:root) {
+    --nav-bg: var(--color-surface);
+    --nav-border: var(--color-border);
+    --nav-item-fg: var(--color-muted);
+    --nav-item-fg-hover: var(--color-fg);
+    --nav-item-bg-hover: var(--accent-soft);
+    --nav-item-fg-active: var(--color-accent);
+    --nav-item-bg-active: var(--accent-soft);
+    --nav-section-label-fg: var(--color-muted);
+}
+
+/* ============================================================
+   Sidebar tone overrides
+   ============================================================ */
+[data-sidebar-tone="subtle"] {
+    --nav-bg: var(--color-surface-2);
+}
+
+[data-sidebar-tone="branded"] {
+    /* Dark forge — always this regardless of color scheme (intentional). */
+    --nav-bg: #1A0D07;
+    --nav-border: #2E1A0E;
+    --nav-item-fg: #A09088;
+    --nav-item-fg-hover: #E2E2E0;
+    --nav-item-bg-hover: rgba(210, 105, 30, 0.15);
+    --nav-item-fg-active: #D2691E;
+    --nav-item-bg-active: rgba(210, 105, 30, 0.18);
+    --nav-section-label-fg: #6A5A52;
+}
+
+/* ============================================================
+   Corner radius override
+   ============================================================ */
+[data-radius="sharp"] {
+    --radius: 0px;
+    --radius-sm: 0px;
+    --wa-border-radius-m: 0px;
+    --wa-border-radius-s: 0px;
+}
+
+/* ============================================================
+   wa-page menu background wiring (sidebar tone)
+   The page component uses --wa-color-surface-default for menu/aside background.
+   This is already mapped to --color-bg in hearth-theme.css, so sidebar-tone
+   only affects light-DOM nav content via --nav-bg, not the wa-page shell
+   container background (which stays at WA's default surface).
+   ============================================================ */
+:where(:root),
+.wa-light,
+.wa-dark {
+    /* --wa-color-surface-default: var(--nav-bg);  -- disabled: affects all surfaces */
 }
